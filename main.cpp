@@ -4,7 +4,7 @@
 #include <QIcon>
 #include "log.h"
 #include "dump_handler.h"
-#include "meter.h"
+#include "instrument.h"
 
 int main(int argc, char *argv[])
 {
@@ -17,9 +17,9 @@ int main(int argc, char *argv[])
     Log::instance().init(); // 🚀 只有 Release 才会物理运行，Debug 下直接在源码层面被人间蒸发！
 #endif
 
-    Meter* meter = new Meter(&app);
+    Instrument* ins = new Instrument(&app);
     // 网关类设置成上下文属性
-    engine.rootContext()->setContextProperty("meter", meter);
+    engine.rootContext()->setContextProperty("ins", ins);
 
     QObject::connect(
         &engine,

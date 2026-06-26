@@ -5,7 +5,7 @@ project(instrument VERSION 0.1 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(QT_QML_GENERATE_QMLLS_INI ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Quick)
+find_package(Qt6 REQUIRED COMPONENTS Quick SerialPort)
 
 qt_standard_project_setup(REQUIRES 6.8)
 
@@ -20,11 +20,13 @@ qt_add_executable(appinstrument
 qt_add_qml_module(appinstrument
     URI instrument
     QML_FILES
-        Main.qml
-        SOURCES dump_handler.h
-        SOURCES meter.h meter.cpp
-        SOURCES log.cpp log.h
-
+        ui/Main.qml
+        ui/Header.qml
+        ui/ErrorCalc.qml
+        ui/Calibration.qml
+        SOURCES dump_handler.h instrument.h instrument.cpp log.cpp log.h RS232.cpp RS232.h RS485.cpp RS485.h
+        RESOURCES ui/image/refresh.svg
+        QML_FILES ui/TopMessage.qml
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
@@ -41,6 +43,7 @@ set_target_properties(appinstrument PROPERTIES
 target_link_libraries(appinstrument
     PRIVATE Qt6::Quick
     dbghelp
+    Qt6::SerialPort
 )
 
 install(TARGETS appinstrument

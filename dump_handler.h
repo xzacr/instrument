@@ -9,16 +9,6 @@
 #include <QStandardPaths>
 #include <QCoreApplication>
 
-void cleanupOldDumpFiles()
-{
-    QString dumpPath = QCoreApplication::applicationDirPath() + "/crashes";
-    QDir dir(dumpPath);
-
-    if (!dir.exists()) return;
-
-
-}
-
 // 崩溃回调函数
 LONG WINAPI exceptionFilter(EXCEPTION_POINTERS* exceptionInfo) {
     // 创建 dump 文件夹（通常放在 AppData 或程序运行目录下）
