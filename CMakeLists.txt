@@ -27,6 +27,7 @@ qt_add_qml_module(appinstrument
         SOURCES dump_handler.h instrument.h instrument.cpp log.cpp log.h RS232.cpp RS232.h RS485.cpp RS485.h
         RESOURCES ui/image/refresh.svg
         QML_FILES ui/TopMessage.qml
+        SOURCES calibrationthread.h calibrationthread.cpp
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.

@@ -3,8 +3,8 @@
 Instrument::Instrument(QObject *parent)
     : QObject{parent}
 {
-    m_rs232 = new RS232(this);
-    m_rs485 = new RS485(this);
+    m_rs232 = new RS232(nullptr);
+    m_rs485 = new RS485(nullptr);
 }
 
 // 手动触发崩溃,测试dmp文件
