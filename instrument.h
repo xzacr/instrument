@@ -2,29 +2,37 @@
 #define INSTRUMENT_H
 
 #include <QObject>
-#include <QDebug>
-#include "RS232.h"
-#include "RS485.h"
+#include <QStringList>
+#include "calibrationthread.h"
 
 class Instrument : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(RS232* rs232 READ rs232 CONSTANT)
-    Q_PROPERTY(RS485* rs485 READ rs485 CONSTANT)
+    // 提供给界面的下拉框使用
+    Q_PROPERTY(QStringList availablePorts READ availablePorts NOTIFY availablePortsChanged)
+    Q_PROPERTY(bool isCalibrating READ isCalibrating NOTIFY isCalibratingChanged)
+
 public:
     explicit Instrument(QObject *parent = nullptr);
 
-    RS232* rs232() const { return m_rs232; }
-    RS485* rs485() const { return m_rs485; }
+    QStringList availablePorts() const { return m_availablePorts; }
 
-    // 手动创造崩溃
-    Q_INVOKABLE void triggerCpuCrash();
+    Q_INVOKABLE void refreshPorts(); // 刷新串口列表
+    Q_INVOKABLE void startCalibration(const QString &srcPort, int srcBaud, const QString &meterPort, int meterBaud);
+    Q_INVOKABLE void stopCalibration();
+
+    bool isCalibrating() const { return m_calibThread->isRunning(); }
+
+    Q_INVOKABLE void triggerCpuCrash(); // 保留你的测试接口
 
 signals:
+    void availablePortsChanged();
+    void showTopMsg(const QString &msg, const QString &type);
+    void isCalibratingChanged();
 
 private:
-    RS232 *m_rs232;
-    RS485 *m_rs485;
+    CalibrationThread *m_calibThread;
+    QStringList m_availablePorts;
 };
 
 #endif // INSTRUMENT_H

@@ -35,22 +35,19 @@ Item {
                     spacing: 10
                     Label { text: qsTr("串口:") }
                     ComboBox {
-                        id: port
-                        model: ins.rs232.portList
+                        id: srcport
+                        model: ins.availablePorts
                         // 如果列表为空，显示提示
                         displayText: count > 0 ? currentText : "未发现串口"
-
-                        // 第一次加载或显示时自动刷新一次
-                        //Component.onCompleted: gateway.serial.refreshPorts()
                         Layout.preferredWidth: 150
-                        enabled: !ins.rs232.isOpen
+                        enabled: !ins.isCalibrating
                         onActivated: {
                             console.log("标准源选择了",currentText)
                         }
                     }
                     ToolButton {
                         id: refreshBtn
-                        enabled: !ins.rs232.isOpen
+                        enabled: !ins.isCalibrating
                         icon.source: "image/refresh.svg"
                         icon.width: 28
                         icon.height: 28
@@ -71,7 +68,7 @@ Item {
                         onClicked: {
                             console.log("标准源刷新串口")
                             rotateAnim.restart()
-                            ins.rs232.refreshPorts()
+                            ins.refreshPorts()
                         }
 
                         RotationAnimation {
@@ -83,36 +80,12 @@ Item {
                     }
                     Label { text: qsTr("波特率:") }
                     ComboBox {
-                        id: baudrate
-                        model: ["2400","4800","9600","19200","28800","38400","56700","115200"];
+                        id: srcbaud
+                        model: [2400,4800,9600,19200,28800,38400,56700,115200];
                         currentIndex: 5;
                         Layout.preferredWidth: 150
+                        enabled: !ins.isCalibrating
                     }
-                    Button {
-                        id: openbtn
-                        text: ins.rs232.isOpen ? "关闭串口" : "打开串口"
-                        highlighted: !ins.rs232.isOpen
-                        Layout.preferredWidth: 130
-                        Layout.preferredHeight: 60
-                        onClicked: {
-                            if(openbtn.text === "打开串口"){
-                                console.log("232打开串口",port.currentText,"波特率",baudrate.currentText)
-                                if(ins.rs232.openPort(port.currentText,baudrate.currentText) === true){
-                                    topMsg.display("打开串口成功!","success")
-                                }else{
-                                    topMsg.display("打开串口失败!" + ins.rs232.lastError,"error")
-                                }
-                            }else{
-                                console.log("232关闭串口")
-                                if(ins.rs232.closePort() === true){
-                                    topMsg.display("关闭串口成功!","success")
-                                }else{
-                                    topMsg.display("关闭串口失败!","error")
-                                }
-                            }
-                        }
-                    }
-
                     // 【内部弹簧】：把上面的控件紧紧往左边推，防止它们在这个 50% 区域里散开
                     Item { Layout.fillWidth: true }
                 }
@@ -134,22 +107,19 @@ Item {
                     spacing: 10
                     Label { text: qsTr("串口:") }
                     ComboBox {
-                        id: port1
-                        model: ins.rs485.portList
+                        id: meterport
+                        model: ins.availablePorts
                         // 如果列表为空，显示提示
                         displayText: count > 0 ? currentText : "未发现串口"
-
-                        // 第一次加载或显示时自动刷新一次
-                        //Component.onCompleted: gateway.serial.refreshPorts()
                         Layout.preferredWidth: 150
-                        enabled: !ins.rs485.isOpen
+                        enabled: !ins.isCalibrating
                         onActivated: {
                             console.log("仪表选择了",currentText)
                         }
                     }
                     ToolButton {
                         id: refreshBtn1
-                        enabled: !ins.rs485.isOpen
+                        enabled: !ins.isCalibrating
                         icon.source: "image/refresh.svg"
                         icon.width: 28
                         icon.height: 28
@@ -170,7 +140,7 @@ Item {
                         onClicked: {
                             console.log("仪表刷新串口")
                             rotateAnim1.restart()
-                            ins.rs485.refreshPorts()
+                            ins.refreshPorts()
                         }
 
                         RotationAnimation {
@@ -182,37 +152,12 @@ Item {
                     }
                     Label { text: qsTr("波特率:") }
                     ComboBox {
-                        id: baudrate1
-                        model: ["2400","4800","9600","19200","28800","38400","56700","115200"];
+                        id: meterbaud
+                        model: [2400,4800,9600,19200,28800,38400,56700,115200];
                         currentIndex: 2
                         Layout.preferredWidth: 150
+                        enabled: !ins.isCalibrating
                     }
-                    Button {
-                        id: openbtn1
-                        text: ins.rs485.isOpen ? "关闭串口" : "打开串口"
-                        highlighted: !ins.rs485.isOpen
-                        Layout.preferredWidth: 130
-                        Layout.preferredHeight: 60
-                        onClicked: {
-                            if(openbtn1.text === "打开串口"){
-                                console.log("485打开串口",port1.currentText,"波特率",baudrate1.currentText)
-                                if(ins.rs485.openPort(port1.currentText,baudrate1.currentText) === true){
-                                    topMsg.display("打开串口成功!","success")
-                                }else{
-                                    topMsg.display("打开串口失败!" + ins.rs485.lastError,"error")
-                                }
-                            }else{
-                                console.log("485关闭串口")
-                                if(ins.rs485.closePort() === true){
-                                    topMsg.display("关闭串口成功!","success")
-                                }else{
-                                    topMsg.display("关闭串口失败!","error")
-                                }
-                            }
-                        }
-                    }
-
-                    // 【内部弹簧】：同样把控件往左边推
                     Item { Layout.fillWidth: true }
                 }
             }
@@ -257,15 +202,24 @@ Item {
                 font.bold: true
                 highlighted: true
                 Layout.preferredHeight: 60
+                enabled: !ins.isCalibrating
                 Material.background: Material.Teal
+                onClicked: {
+                    ins.startCalibration(srcport.currentText,srcbaud.currentValue,meterport.currentText,meterbaud.currentValue)
+                }
             }
 
             Button {
                 text: qsTr("停止校准")
                 font.bold: true
                 highlighted: true
+                enabled: ins.isCalibrating
                 Layout.preferredHeight: 60
                 Material.background: Material.Red
+                onClicked: {
+                    // 【绑定停止】
+                    ins.stopCalibration()
+                }
             }
 
             Item { Layout.fillWidth: true } // 弹簧占位，把右边的状态顶过去

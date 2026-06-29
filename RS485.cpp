@@ -129,6 +129,21 @@ void RS485::onSerialError(QSerialPort::SerialPortError error)
         m_serial->close();
     }
     emit statusChanged();
-    // 暂未使用
-    //emit errorOccurred(errorChineseDesc);
+
+    emit errorOccurred(errorChineseDesc);
+}
+
+// 挂起异步模式（交接给子线程前调用，防止信号抢夺数据）
+void RS485::suspendAsyncMode()
+{
+    if (m_frameTimer->isActive()) m_frameTimer->stop();
+    m_buffer.clear();
+    // 断开接收信号
+    disconnect(m_serial, &QSerialPort::readyRead, this, &RS485::onReadyRead);
+}
+
+// 恢复异步模式（子线程还回来后调用，界面恢复测试功能）
+void RS485::resumeAsyncMode()
+{
+    connect(m_serial, &QSerialPort::readyRead, this, &RS485::onReadyRead);
 }

@@ -132,3 +132,18 @@ void RS232::onSerialError(QSerialPort::SerialPortError error)
     // 发射给控制台文本框或 DeployDialog 弹窗视口进行 100% 准确同步显示
     emit errorOccurred(errorChineseDesc);
 }
+
+// 挂起异步模式（交接给子线程前调用，防止信号抢夺数据）
+void RS232::suspendAsyncMode()
+{
+    if (m_frameTimer->isActive()) m_frameTimer->stop();
+    m_buffer.clear();
+    // 断开接收信号
+    disconnect(m_serial, &QSerialPort::readyRead, this, &RS232::onReadyRead);
+}
+
+// 恢复异步模式（子线程还回来后调用，界面恢复测试功能）
+void RS232::resumeAsyncMode()
+{
+    connect(m_serial, &QSerialPort::readyRead, this, &RS232::onReadyRead);
+}

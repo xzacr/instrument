@@ -29,6 +29,11 @@ public:
     Q_INVOKABLE bool closePort();
     bool isOpen() const { return m_serial->isOpen(); }
 
+    // --- 多线程交接需要的核心接口 ---
+    QSerialPort* getSerialPort() { return m_serial; }
+    void suspendAsyncMode();
+    void resumeAsyncMode();
+
 signals:
     void statusChanged();                      // 串口开关状态改变
     void portListChanged();

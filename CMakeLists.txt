@@ -24,7 +24,7 @@ qt_add_qml_module(appinstrument
         ui/Header.qml
         ui/ErrorCalc.qml
         ui/Calibration.qml
-        SOURCES dump_handler.h instrument.h instrument.cpp log.cpp log.h RS232.cpp RS232.h RS485.cpp RS485.h
+        SOURCES dump_handler.h instrument.h instrument.cpp log.cpp log.h
         RESOURCES ui/image/refresh.svg
         QML_FILES ui/TopMessage.qml
         SOURCES calibrationthread.h calibrationthread.cpp

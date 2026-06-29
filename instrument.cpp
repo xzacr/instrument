@@ -1,15 +1,44 @@
 #include "instrument.h"
+#include <QSerialPortInfo>
 
-Instrument::Instrument(QObject *parent)
-    : QObject{parent}
+Instrument::Instrument(QObject *parent) : QObject{parent}
 {
-    m_rs232 = new RS232(nullptr);
-    m_rs485 = new RS485(nullptr);
+    m_calibThread = new CalibrationThread(this);
+
+    // 中转弹窗信号
+    connect(m_calibThread, &CalibrationThread::showTopMessage, this, &Instrument::showTopMsg);
+    connect(m_calibThread, &QThread::started, this, &Instrument::isCalibratingChanged);
+    connect(m_calibThread, &QThread::finished, this, &Instrument::isCalibratingChanged);
+
+    refreshPorts(); // 启动时获取一次串口列表
 }
 
-// 手动触发崩溃,测试dmp文件
+void Instrument::refreshPorts()
+{
+    QStringList list;
+    const auto infos = QSerialPortInfo::availablePorts();
+    for (const auto &info : infos) {
+        list << info.portName();
+    }
+    if (m_availablePorts != list) {
+        m_availablePorts = list;
+        emit availablePortsChanged();
+    }
+}
+
+void Instrument::startCalibration(const QString &srcPort, int srcBaud, const QString &meterPort, int meterBaud)
+{
+    if (m_calibThread->isRunning()) return;
+
+    m_calibThread->setConfig(srcPort, srcBaud, meterPort, meterBaud);
+    m_calibThread->start();
+}
+
+void Instrument::stopCalibration()
+{
+    if (m_calibThread->isRunning()) m_calibThread->stopCalibration();
+}
+
 void Instrument::triggerCpuCrash() {
-    qInfo() << "[Test]" << " 正在执行【内核级】人工引爆 C++ 内存防线...";
-    int* p = nullptr;
-    *p = 12345; // 💣 故意制造空指针异常
+    int* p = nullptr; *p = 12345;
 }

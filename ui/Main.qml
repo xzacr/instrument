@@ -37,9 +37,9 @@ ApplicationWindow {
     }
 
     Connections{
-        target: ins.rs232
-        function onErrorOccurred(errstring){
-            topMsg.display(errstring,"error")
+        target: ins
+        function onShowTopMsg(msg,type){
+            topMsg.display(msg,type)
         }
     }
 
