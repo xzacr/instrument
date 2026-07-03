@@ -3,6 +3,7 @@
 
 #include <QThread>
 #include <QSerialPort>
+#include <QVariantMap>
 
 class CalibrationThread : public QThread
 {
@@ -12,12 +13,16 @@ public:
     ~CalibrationThread() override;
 
     // 接收界面的配置
-    void setConfig(const QString &srcPort, int srcBaud, const QString &meterPort, int meterBaud);
+    void setConfig(const QString &srcPort, int srcBaud, const QString &meterPort, int meterBaud, const QVariantList &meterConfigs);
     void stopCalibration();
 
 signals:
     // 发送给主界面弹窗的跨线程信号
     void showTopMessage(const QString &msg, const QString &type);
+    void srcMessage(const QString &msg, const QString &type);
+    void meterStepStatusChanged(int meterIndex, int stepIndex, int status);
+    void calirResult(const QString &msg, const QString &type);
+    //void meterMessage(const QString &msg, const QString &type,const int sn);
 
 protected:
     void run() override;
@@ -31,14 +36,14 @@ private:
     // 标准源开机握手
     bool handshakeSource(QSerialPort &port);
     // 标准源：发送并死等指定的应答
-    bool sendSourceCmd(QSerialPort &port, const QByteArray &cmdHex);
+    bool sendSourceCmd(QSerialPort &port, const QByteArray &cmdHex, int timeoutMs = 1000);
 
 
     // 翻译机
     QString translateSerialError(QSerialPort::SerialPortError error);
 
-    // 检查标准源（零容忍）
-    bool checkSourceResponse(QSerialPort &port);
+    // 检查标准源（支持动态配置超时时间，默认 1000 毫秒）
+    bool checkSourceResponse(QSerialPort &port, int timeoutMs = 1000);
     // 检查仪表（容忍超时，不容忍拔线）
     bool checkMeterResponse(QSerialPort &port, int meterIndex);
 
@@ -63,12 +68,11 @@ private:
     QString m_meterPortName;
     int m_meterBaud;
 
-    bool m_isRunning;
+    std::atomic<bool> m_isRunning;
 
     // =====================================================================
     // 核心配置与固定报文（写在头文件，杜绝 goto 编译变量跳过报错）
     // =====================================================================
-    const quint8 m_mAddr = 1;
     const quint16 m_regWriteProtect = 0x1FFF;
     const quint16 m_regState = 0x2000;
 
@@ -87,6 +91,27 @@ private:
     const QByteArray m_cfgCmd2 = QByteArray::fromHex("68 6C 00 68 00 92 01 00 00 5C 43 02 00 00 00 00 26 55 00 00 00 03 00 00 5C 43 04 00 00 70 43 27 55 00 00 00 05 00 00 5C 43 06 00 00 F0 42 28 55 00 00 00 07 00 00 A0 40 08 00 00 96 43 29 55 00 00 00 09 00 00 A0 40 0A 00 00 34 43 2A 55 00 00 00 0B 00 00 A0 40 0C 00 00 70 42 2B 55 00 00 00 0E 00 00 48 42 0F 00 00 48 42 66 16");
     // 六通道全量高精度查询帧
     const QByteArray m_queryAllCmd = QByteArray::fromHex("68 6C 00 68 00 91 01 00 00 00 00 02 00 00 00 00 26 00 00 00 00 03 00 00 00 00 04 00 00 00 00 27 00 00 00 00 05 00 00 00 00 06 00 00 00 00 28 00 00 00 00 07 00 00 00 00 08 00 00 00 00 29 00 00 00 00 09 00 00 00 00 0A 00 00 00 00 2A 00 00 00 00 0B 00 00 00 00 0C 00 00 00 00 2B 00 00 00 00 0E 00 00 00 00 0F 00 00 00 00 EF 16");
+
+    enum CalibStep{
+        Step_Unlock  = 0,  // 解除写保护
+        Step_Prepare = 1,  // 校准准备
+        Step_VI_10   = 2,  // 电压电流校准 (PF=1.0)
+        Step_VI_05   = 3,  // 电压电流校准 (PF=0.5)
+        Step_Save    = 4,  // 参数固化保存
+        Step_Reset   = 5   // 等待复位
+    };
+    enum StepState{
+        State_Wait      = 0,  // 等待中
+        State_Running   = 1,  // 正在执行
+        State_Success   = 2,  // 成功
+        State_Failed    = 3,  // 失败
+    };
+    struct MeterTask {
+        int uiIndex;      // QML 界面上的索引 (0~4)
+        quint8 address;   // 物理 Modbus 地址 (1~5)
+        bool isAlive;     // 淘汰标志位：true表示存活继续，false表示这台表已挂
+    };
+    QList<MeterTask> m_meterTasks;
 };
 
 #endif // CALIBRATIONTHREAD_H

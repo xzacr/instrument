@@ -36,13 +36,6 @@ ApplicationWindow {
         ErrorCalc{}
     }
 
-    Connections{
-        target: ins
-        function onShowTopMsg(msg,type){
-            topMsg.display(msg,type)
-        }
-    }
-
     TopMessage {
         id: topMsg
         x: (parent.width - width) / 2
@@ -65,7 +58,7 @@ ApplicationWindow {
 
         Timer {
             id: hideTimer
-            interval: 3000
+            interval: 2000
             onTriggered: topMsg.state = ""
         }
 

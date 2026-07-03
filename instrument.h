@@ -18,7 +18,7 @@ public:
     QStringList availablePorts() const { return m_availablePorts; }
 
     Q_INVOKABLE void refreshPorts(); // 刷新串口列表
-    Q_INVOKABLE void startCalibration(const QString &srcPort, int srcBaud, const QString &meterPort, int meterBaud);
+    Q_INVOKABLE void startCalibration(const QString &srcPort, int srcBaud, const QString &meterPort, int meterBaud, const QVariantList &meterConfigs);
     Q_INVOKABLE void stopCalibration();
 
     bool isCalibrating() const { return m_calibThread->isRunning(); }
@@ -29,6 +29,8 @@ signals:
     void availablePortsChanged();
     void showTopMsg(const QString &msg, const QString &type);
     void isCalibratingChanged();
+    void meterStepStatusChanged(int meterIndex, int stepIndex, int status);
+    void srcMessage(const QString &msg, const QString &type);
 
 private:
     CalibrationThread *m_calibThread;

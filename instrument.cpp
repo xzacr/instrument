@@ -7,6 +7,8 @@ Instrument::Instrument(QObject *parent) : QObject{parent}
 
     // 中转弹窗信号
     connect(m_calibThread, &CalibrationThread::showTopMessage, this, &Instrument::showTopMsg);
+    connect(m_calibThread, &CalibrationThread::meterStepStatusChanged, this, &Instrument::meterStepStatusChanged);
+    connect(m_calibThread, &CalibrationThread::srcMessage, this, &Instrument::srcMessage);
     connect(m_calibThread, &QThread::started, this, &Instrument::isCalibratingChanged);
     connect(m_calibThread, &QThread::finished, this, &Instrument::isCalibratingChanged);
 
@@ -26,11 +28,12 @@ void Instrument::refreshPorts()
     }
 }
 
-void Instrument::startCalibration(const QString &srcPort, int srcBaud, const QString &meterPort, int meterBaud)
+void Instrument::startCalibration(const QString &srcPort, int srcBaud, const QString &meterPort, int meterBaud, const QVariantList &meterConfigs)
 {
     if (m_calibThread->isRunning()) return;
 
-    m_calibThread->setConfig(srcPort, srcBaud, meterPort, meterBaud);
+    // 🌟 透传给线程去解析
+    m_calibThread->setConfig(srcPort, srcBaud, meterPort, meterBaud, meterConfigs);
     m_calibThread->start();
 }
 
