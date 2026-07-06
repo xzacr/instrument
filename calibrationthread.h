@@ -58,9 +58,9 @@ private slots:
 
 private:
     // 将 run 逻辑抽离成独立的子流水线
-    void runCalibrationFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<MeterTask> &meters, int &aliveCount);
+    bool runCalibrationFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<MeterTask> &meters, int &aliveCount);
     // 专门用于测误差的独立流水线
-    void runErrorCalcFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<MeterTask> &meters, int &aliveCount);
+    bool runErrorCalcFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<MeterTask> &meters, int &aliveCount);
 
 
     // 标准源开机握手

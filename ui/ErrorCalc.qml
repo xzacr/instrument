@@ -464,56 +464,79 @@ Item {
                     }
                 }
 
-                ScrollView {
+                // ==========================================
+                // 底部：数据表格区 (替换掉原来的 ScrollView)
+                // ==========================================
+                ListView {
+                    id: resultListView
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
-                    ScrollBar.vertical.policy: ScrollBar.AlwaysOn
 
-                    ListView {
-                        width: parent.width
-                        model: getRowCount(selectedCategory)
+                    // 强制开启交互，允许鼠标左键按住拖拽滑动
+                    interactive: true
+                    // 拖到边缘停止，去除触屏那种回弹效果，更符合桌面软件直觉
+                    boundsBehavior: Flickable.StopAtBounds
 
-                        delegate: RowLayout {
-                            width: ListView.view.width
-                            height: 40
-                            spacing: 0
+                    model: getRowCount(selectedCategory)
 
-                            property int rowIdx: index
-                            visible: true
+                    // 将滚动条直接挂载在 ListView 上
+                    ScrollBar.vertical: ScrollBar {
+                        active: true
+                        policy: ScrollBar.AlwaysOn
+                    }
 
-                            Rectangle {
-                                width: 240
+                    // 数据行代理
+                    delegate: RowLayout {
+                        width: ListView.view.width
+                        height: 40
+                        spacing: 0
+
+                        property int rowIdx: index
+                        visible: true
+
+                        // 新增：轻量级悬浮侦听器。它只侦听 hover，不拦截任何点击和拖拽事件！
+                        HoverHandler {
+                            id: rowHover
+                        }
+
+                        // 定义这一整行的统一背景色：悬浮时亮蓝色，否则斑马纹交替
+                        property color rowBgColor: rowHover.hovered ? "#E6F7FF" : (rowIdx % 2 === 0 ? "#FFFFFF" : "#FAFAFA")
+
+                        // 左侧表头固定列
+                        Rectangle {
+                            width: 240
+                            height: parent.height
+                            color: rowBgColor  // 应用统一行色
+                            border.color: "#E0E0E0"
+                            border.width: 1
+
+                            Label {
+                                anchors.centerIn: parent
+                                text: getRowHeader(selectedCategory, rowIdx)
+                                font.bold: true
+                                font.pixelSize: 14
+                                color: textMain
+                            }
+                        }
+
+                        // 右侧动态数据列
+                        Repeater {
+                            model: getColumns(selectedCategory).length
+                            delegate: Rectangle {
+                                Layout.fillWidth: true
                                 height: parent.height
-                                color: rowIdx % 2 === 0 ? "#FFFFFF" : "#FAFAFA"
                                 border.color: "#E0E0E0"
                                 border.width: 1
+
+                                color: rowBgColor  // 应用统一行色
+
                                 Label {
                                     anchors.centerIn: parent
-                                    text: getRowHeader(selectedCategory, rowIdx)
+                                    text: getLimit(selectedCategory, rowIdx, model.index)
                                     font.bold: true
-                                    font.pixelSize: 14
-                                    color: textMain
-                                }
-                            }
-
-                            Repeater {
-                                model: getColumns(selectedCategory).length
-                                delegate: Rectangle {
-                                    Layout.fillWidth: true
-                                    height: parent.height
-                                    border.color: "#E0E0E0"
-                                    border.width: 1
-
-                                    color: rowIdx % 2 === 0 ? "#FFFFFF" : "#FAFAFA"
-
-                                    Label {
-                                        anchors.centerIn: parent
-                                        text: getLimit(selectedCategory, rowIdx, model.index)
-                                        font.bold: true
-                                        font.pixelSize: 16
-                                        color: "#388E3C"
-                                    }
+                                    font.pixelSize: 16
+                                    color: "#388E3C"
                                 }
                             }
                         }

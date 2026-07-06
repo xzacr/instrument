@@ -27,7 +27,7 @@ void CalibrationThread::setConfig(int mode, const QString &srcPort, int srcBaud,
         bool isEnabled = map.value("enabled").toBool();
         quint8 address = (quint8)map.value("address").toUInt();
 
-        // 🌟 核心改动：同时初始化 isEnabled 和 isAlive。
+        // 同时初始化 isEnabled 和 isAlive。
         // isAlive 的初始状态直接继承 isEnabled。
         m_meterTasks.append({i, address, isEnabled, isEnabled});
     }
@@ -70,7 +70,7 @@ void CalibrationThread::run()
         return;
     }
 
-    // 🌟 提取动态名单
+    // 提取动态名单
     QList<MeterTask> meters = m_meterTasks;
     int aliveCount = 0;
     for (auto &m : meters) {
@@ -79,12 +79,16 @@ void CalibrationThread::run()
 
     // ================= 分流点 1：执行全自动校准 =================
     if (m_workMode == Mode_FullAuto) {
-        runCalibrationFlow(srcPort, meterPort, meters, aliveCount);
+        if (!runCalibrationFlow(srcPort, meterPort, meters, aliveCount)) {
+            goto ABORT_PROCESS; // 如果子流程崩溃，立刻中断！
+        }
     }
 
     // ================= 分流点 2：执行误差计算 =================
     if (m_isRunning && aliveCount > 0 && (m_workMode == Mode_FullAuto || m_workMode == Mode_ErrorCalc)) {
-        runErrorCalcFlow(srcPort, meterPort, meters, aliveCount);
+        if (!runErrorCalcFlow(srcPort, meterPort, meters, aliveCount)) {
+            goto ABORT_PROCESS; // 如果误差流程崩溃，立刻中断！
+        }
     }
 
     // 全部通关或彻底结束！
@@ -111,23 +115,23 @@ SUCCESS_EXIT:
 // -------------------------------------------------------------------------
 // 抽离出的纯校准流水线 (注意将原来的 goto ABORT_PROCESS 全部换成了 return)
 // -------------------------------------------------------------------------
-void CalibrationThread::runCalibrationFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<MeterTask> &meters, int &aliveCount)
+bool CalibrationThread::runCalibrationFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<MeterTask> &meters, int &aliveCount)
 {
     // =========================================================
     // 阶段一：标准源输出 220V 5A 1.0PF
     // =========================================================
     qDebug("1. 下发 220V 5A 1.0PF 配置...");
-    if (!sendSourceCmd(srcPort, m_cfgCmd1)) return;
+    if (!sendSourceCmd(srcPort, m_cfgCmd1)) return false;
 
     qDebug("2. 启动标准源输出...");
     emit srcMessage("220V/5A/PF=1.0 等待源稳定...", "info");
-    if (!sendSourceCmd(srcPort, m_startCmd, 6000)) return;
+    if (!sendSourceCmd(srcPort, m_startCmd, 6000)) return false;
 
     qInfo() << "正在全通道监测物理输出，验证三相配置...";
-    if (!waitSourceStable(srcPort, 1.0f, 1000)) return;
+    if (!waitSourceStable(srcPort, 1.0f, 1000)) return false;
 
     emit srcMessage("220V/5A/PF=1.0", "success");
-    if (!m_isRunning) return;
+    if (!m_isRunning) return false;
 
     // =========================================================
     // 步骤 0：解除写保护
@@ -150,7 +154,7 @@ void CalibrationThread::runCalibrationFlow(QSerialPort &srcPort, QSerialPort &me
     }
     if (aliveCount == 0) {
         emit showTopMessage("仪表全部失败，校准终止", "error");
-        return;
+        return false;
     }
 
     // =========================================================
@@ -180,7 +184,7 @@ void CalibrationThread::runCalibrationFlow(QSerialPort &srcPort, QSerialPort &me
     }
     if (aliveCount == 0) {
         emit showTopMessage("仪表全部失败，校准终止", "error");
-        return;
+        return false;
     }
 
     // =========================================================
@@ -203,25 +207,25 @@ void CalibrationThread::runCalibrationFlow(QSerialPort &srcPort, QSerialPort &me
     }
     if (aliveCount == 0) {
         emit showTopMessage("仪表全部失败，校准终止", "error");
-        return;
+        return false;
     }
-    if (!m_isRunning) return;
+    if (!m_isRunning) return false;
 
     // =========================================================
     // 阶段三：标准源输出 220V 5A 0.5PF
     // =========================================================
     qDebug("7. 切换源至 0.5PF...");
-    if (!sendSourceCmd(srcPort, m_cfgCmd2)) return;
+    if (!sendSourceCmd(srcPort, m_cfgCmd2)) return false;
 
     qDebug("8. 启动标准源输出...");
     emit srcMessage("220V/5A/PF=0.5 等待源稳定...", "info");
-    if (!sendSourceCmd(srcPort, m_startCmd, 6000)) return;
+    if (!sendSourceCmd(srcPort, m_startCmd, 6000)) return false;
 
     qInfo() << "正在全通道监测物理输出，验证三相全量配置(0.5PF)...";
-    if (!waitSourceStable(srcPort, 0.5f, 1000)) return;
+    if (!waitSourceStable(srcPort, 0.5f, 1000)) return false;
 
     emit srcMessage("220V/5A/PF=0.5", "success");
-    if (!m_isRunning) return;
+    if (!m_isRunning) return false;
 
     // =========================================================
     // 步骤 3：电压电流校准 (PF=0.5)
@@ -243,7 +247,7 @@ void CalibrationThread::runCalibrationFlow(QSerialPort &srcPort, QSerialPort &me
     }
     if (aliveCount == 0) {
         emit showTopMessage("仪表全部失败，校准终止", "error");
-        return;
+        return false;
     }
 
     // =========================================================
@@ -286,29 +290,77 @@ void CalibrationThread::runCalibrationFlow(QSerialPort &srcPort, QSerialPort &me
 
     if (aliveCount == 0) {
         emit showTopMessage("仪表全部失败，校准终止", "error");
-        return;
+        return false;
     }
+    return true;
 }
 
 // -------------------------------------------------------------------------
 // 独立的误差计算流水线 (在这里写死循环打各种电压电流点)
 // -------------------------------------------------------------------------
-void CalibrationThread::runErrorCalcFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<MeterTask> &meters, int &aliveCount)
+bool CalibrationThread::runErrorCalcFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<MeterTask> &meters, int &aliveCount)
 {
-    qInfo() << "====== 正在启动高并发误差计算流水线 ======";
-    emit showTopMessage("正在执行多维误差数据采集...", "info");
+    qInfo() << "====== 正在启动单表电压读取探针 ======";
 
-    // TODO: 我们下一步将在这里补充：
-    // 1. 发送标准源新测点命令 (比如 20% 100% 等等)
-    // 2. 批量读取仪表寄存器 (如 0x0010) 并计算精度
-    // 3. 把算出的 JSON 推给前端 QML
-
-    QThread::msleep(2000); // 暂用睡眠替代真实逻辑，等待您的地址表
-
-    if (m_isRunning) {
-        qInfo() << "误差计算流程执行完毕！";
-        emit showTopMessage("误差测试数据采集完毕", "success");
+    quint8 targetAddr = 0;
+    for (const auto &meter : meters) {
+        if (meter.isAlive) {
+            targetAddr = meter.address;
+            break;
+        }
     }
+    if (targetAddr == 0) {
+        qWarning() << "没有存活的仪表可以读取！";
+        return false;
+    }
+
+    qInfo() << ">>> [探针] 锁定仪表地址:" << targetAddr << "，开始连续读取 0x1018 长度 2 ...";
+
+    // 纯手工组装 Modbus 03 连续读取指令
+    QByteArray frame;
+    frame.append(targetAddr).append(0x03);
+    frame.append(0x10).append(0x18);       // 起始地址: 0x1018
+    frame.append((char)0x00).append(0x02); // 读取长度: 2 个寄存器 (4 个字节)
+    quint16 crc = calculateCRC(frame);
+    frame.append(crc & 0xFF).append(crc >> 8);
+
+    qInfo().noquote() << QString("[Tx 仪表%1]").arg(targetAddr) << frame.toHex(' ').toUpper();
+    meterPort.write(frame);
+
+    // 3. 接收并解析
+    if (checkMeterResponse(meterPort, targetAddr)) {
+        QByteArray rx = meterPort.readAll();
+        qInfo().noquote() << QString("[Rx 仪表%1]").arg(targetAddr) << rx.toHex(' ').toUpper();
+
+        // 校验：地址(1) + 功能码(1) + 字节数(1) + 数据(4) + CRC(2) = 9 字节
+        // rx[2] 必须是 0x04 (因为 2 个寄存器 = 4 字节)
+        if (rx.size() >= 9 && rx[0] == targetAddr && rx[1] == 0x03 && rx[2] == 0x04) {
+
+            // 完美还原您的 C 代码：将 4 个字节按大端序 (Big-Endian) 重新拼回 uint32_t
+            quint32 rawVal = ((quint8)rx[3] << 24) |
+                             ((quint8)rx[4] << 16) |
+                             ((quint8)rx[5] << 8)  |
+                             ((quint8)rx[6]);
+
+            // 原始值除以 10 还原成浮点数
+            float meterUa = rawVal / 10.0f;
+
+            qInfo().noquote() << QString("🟩 [仪表 %1] 读取成功! 原始拼接值: %2 -> 真实物理电压: %3 V")
+                                     .arg(targetAddr)
+                                     .arg(rawVal)
+                                     .arg(meterUa, 0, 'f', 2);
+        } else {
+            qWarning() << "🟥 返回报文格式不匹配或长度不足！";
+        }
+    } else {
+        qWarning() << "🟥 读取超时！仪表没有响应。";
+    }
+
+    if (!m_isRunning) return false;
+
+    qInfo() << "====== 探针测试结束 ======";
+    emit showTopMessage("单表电压读取测试完毕", "success");
+    return true;
 }
 
 void CalibrationThread::onSourcePortError(QSerialPort::SerialPortError error)

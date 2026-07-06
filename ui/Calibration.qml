@@ -273,6 +273,8 @@ Item {
                                 }
 
                                 if (seenSns.includes(item.meterSn)) {
+                                    console.log("seenSns",seenSns)
+                                    console.log("item.meterSn",item.meterSn)
                                     topMsg.display("仪表编号存在重复 (冲突编号: " + item.meterSn + ")", "error")
                                     validationPassed = false
                                     break
@@ -280,6 +282,8 @@ Item {
                                 seenSns.push(item.meterSn)
 
                                 if (seenAddresses.includes(item.meterAddr)) {
+                                    console.log("seenAddresses",seenAddresses)
+                                    console.log("item.meterAddr",item.meterAddr)
                                     topMsg.display("通信地址存在冲突 (冲突地址: " + item.meterAddr + ")", "error")
                                     validationPassed = false
                                     break
@@ -377,7 +381,7 @@ Item {
                     Behavior on opacity { NumberAnimation { duration: 200 } }
 
                     property bool isEnabled: enableCheck.checked
-                    property int meterAddr: parseInt(addrInput.text) || 1
+                    property int meterAddr: addrInput.value
                     property string meterSn: sn.text.trim()
 
                     function updateStep(stepIdx, newStatus) {

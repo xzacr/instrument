@@ -28,12 +28,12 @@ void Instrument::refreshPorts()
     }
 }
 
-// 🌟 新的启动统一分发器
+// 核心分发器：支持缓存和多模式
 void Instrument::startTask(int mode, const QString &srcPort, int srcBaud, const QString &meterPort, int meterBaud, const QVariantList &meterConfigs)
 {
     if (m_calibThread->isRunning()) return;
 
-    // 如果 QML 传了实际配置（比如在校准页面），我们就更新缓存
+    // 如果 QML 传了实际配置（不为空），我们就更新缓存
     if (!srcPort.isEmpty()) {
         m_lastSrcPort = srcPort;
         m_lastSrcBaud = srcBaud;
