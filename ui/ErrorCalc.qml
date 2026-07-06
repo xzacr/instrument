@@ -1,392 +1,476 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.15
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+import QtQuick.Effects
 
-/* STREAMING_CHUNK: Defining root window and core color palette */
-Rectangle {
-id: root
-width: 1200
-height: 800
-color: "#F5F7FA" // 整体浅灰背景，契合主界面风格
+Item {
+    id: errorCalcPage
 
-// --- 颜色主题定义 ---
-readonly property color themeColor: "#009688" // 深青色(启动按钮颜色)
-readonly property color cardBg: "#FFFFFF"
-readonly property color borderColor: "#E4E7ED"
-readonly property color textMain: "#303133"
-readonly property color textSub: "#909399"
-readonly property color colorPass: "#67C23A" // 绿色
-readonly property color colorFail: "#F56C6C" // 红色
-readonly property color colorIdle: "#DCDFE6" // 灰色
-readonly property color colorRunning: "#409EFF" // 蓝色
+    property color themeColor: "#1976D2"
+    property color textMain: "#333333"
+    property color textSub: "#606266"
 
-// --- 全局状态变量 ---
-property int activeMeterIndex: 0 // 当前选中的仪表 (0-4)
-property int activeCategoryIndex: 0 // 当前选中的参数类别 (0:电压, 1:电流, 2:有功, 3:无功, 4:视在, 5:功率因数, 6:谐波)
-property bool showFailOnly: false // 仅显示异常过滤
+    property int selectedMeterIndex: 1
+    property int selectedCategory: 0
 
-// 类别定义
-property var categories: ["电压", "电流", "有功功率", "无功功率", "视在功率", "功率因数", "高次谐波"]
+    property var categories: [
+        "电压", "电流", "有功功率", "无功功率",
+        "视在功率", "功率因数", "谐波电压", "谐波电流"
+    ]
 
-/* STREAMING_CHUNK: Initializing mock data generator for 5 meters */
-// --- 模拟后台数据模型 ---
-// 实际开发中，这些数据将来自 C++ 的 QAbstractTableModel 或 QVariantMap
-property var metersData: []
+    function getColumns(cat) {
+        if (cat === 0) return ["Ua", "Ub", "Uc", "Uab", "Ubc", "Uac"]
+        if (cat === 1) return ["Ia", "Ib", "Ic"]
+        if (cat === 2) return ["Pa", "Pb", "Pc", "P总"]
+        if (cat === 3) return ["Qa", "Qb", "Qc", "Q总"]
+        if (cat === 4) return ["Sa", "Sb", "Sc", "S总"]
+        if (cat === 5) return ["PFa", "PFb", "PFc", "PF总"]
+        if (cat === 6) return ["Ua(含3%)", "Ub(含3%)", "Uc(含3%)", "Ua(含10%)", "Ub(含10%)", "Uc(含10%)"]
+        if (cat === 7) return ["Ia(含10%)", "Ib(含10%)", "Ic(含10%)", "Ia(含20%)", "Ib(含20%)", "Ic(含20%)"]
+        return []
+    }
 
-Component.onCompleted: {
-    generateMockData()
-}
+    function getRowCount(cat) {
+        if (cat === 0 || cat === 1) return 3
+        if (cat === 2) return 51
+        if (cat === 3) return 39
+        if (cat === 4) return 15
+        if (cat === 5) return 36
+        if (cat === 6 || cat === 7) return 30
+        return 0
+    }
 
-function generateMockData() {
-    let allData = []
-    for (let m = 0; m < 5; m++) {
-        let meter = {
-            uiIndex: m,
-            isEnabled: m !== 2, // 模拟第3台表未启用
-            status: m === 2 ? 0 : (m === 1 ? 2 : (m === 4 ? 3 : 1)), // 0:Idle, 1:Pass, 2:Fail, 3:Running
-            topMsg: m === 1 ? "B相电压超标, 3次谐波超标" : (m === 4 ? "正在测：5次谐波" : "全部测试合格"),
-            categories: []
-        }
+    function getRowHeader(cat, rowIdx) {
+        if (cat === 0) return ["20% (44V)", "100% (220V)", "120% (264V)"][rowIdx % 3]
+        if (cat === 1) return ["10% (0.5A)", "100% (5A)", "120% (6A)"][rowIdx % 3]
 
-        if(meter.isEnabled) {
-            // 0: 电压 (3行 x 6列)
-            meter.categories.push(createMatrix(
-                ["20% (44V)", "100% (220V)", "120% (264V)"],
-                ["Ua", "Ub", "Uc", "Uab", "Ubc", "Uac"],
-                m === 1 // 让第2台表产生Fail
-            ))
-            // 1: 电流 (3行 x 3列)
-            meter.categories.push(createMatrix(
-                ["10% (0.5A)", "100% (5A)", "120% (6A)"],
-                ["Ia", "Ib", "Ic"], false
-            ))
-            // 2,3,4: 功率 (模拟10行 x 4列: Pa, Pb, Pc, P总)
-            for(let i=0; i<3; i++) {
-                let pRows = []
-                for(let r=1; r<=10; r++) pRows.push("工况 " + r + " (xxxV, xxxA)")
-                meter.categories.push(createMatrix(pRows, ["相A", "相B", "相C", "总和"], false))
+        let voltages = ["176V", "220V", "264V"];
+
+        if (cat === 2) {
+            let v = voltages[Math.floor(rowIdx / 17) % 3] || "220V";
+            let subIdx = rowIdx % 17;
+            if (subIdx < 5) {
+                return v + ", PF=1.0, " + ["0.05A", "0.2A", "0.25A", "5.0A", "6.0A"][subIdx];
+            } else if (subIdx < 11) {
+                return v + ", PF=0.5L, " + ["0.1A", "0.25A", "0.4A", "0.5A", "5.0A", "6.0A"][subIdx - 5];
+            } else {
+                return v + ", PF=0.8C, " + ["0.1A", "0.25A", "0.4A", "0.5A", "5.0A", "6.0A"][subIdx - 11];
             }
-            // 5: 功率因数
-            meter.categories.push(createMatrix(["PF=1.0", "PF=0.5L", "PF=0.8C"], ["PFa", "PFb", "PFc", "PF总"], false))
-
-            // 6: 高次谐波 (30行 x 6列)
-            let hRows = []
-            for(let h=2; h<=31; h++) hRows.push(h + "次谐波 (含有率)")
-            meter.categories.push(createMatrix(hRows, ["Ua", "Ub", "Uc", "Ia", "Ib", "Ic"], m === 1))
-        } else {
-            for(let i=0; i<7; i++) meter.categories.push({rows:[], cols:[], cells:[]})
         }
-        allData.push(meter)
-    }
-    metersData = allData
-}
 
-function createMatrix(rows, cols, injectFail) {
-    let matrix = { rows: rows, cols: cols, cells: [] }
-    for (let r = 0; r < rows.length; r++) {
-        let rowData = []
-        for (let c = 0; c < cols.length; c++) {
-            // 模拟数据生成
-            let isFail = injectFail && r === 1 && c === 1 // 固定让 100% Ub 或 3次谐波 Ub Fail
-            let err = (Math.random() * (isFail ? 2.5 : 0.4)) * (Math.random()>0.5?1:-1)
-            rowData.push({
-                errStr: (err>0?"+":"") + err.toFixed(3) + "%",
-                valStr: (220 * (1 + err/100)).toFixed(3), // 随便模拟个读数
-                isFail: isFail
-            })
+        if (cat === 3) {
+            let v = voltages[Math.floor(rowIdx / 13) % 3] || "220V";
+            let subIdx = rowIdx % 13;
+            if (subIdx < 5) {
+                return v + ", PF=0, " + ["0.1A", "0.2A", "0.25A", "5.0A", "6.0A"][subIdx];
+            } else if (subIdx < 10) {
+                return v + ", PF=0.866, " + ["0.25A", "0.4A", "0.5A", "5.0A", "6.0A"][subIdx - 5];
+            } else {
+                return v + ", PF=0.968, " + ["0.5A", "5.0A", "6.0A"][subIdx - 10];
+            }
         }
-        matrix.cells.push(rowData)
+
+        if (cat === 4) {
+            let v = voltages[Math.floor(rowIdx / 5) % 3] || "220V";
+            let subIdx = rowIdx % 5;
+            return v + ", PF=1, " + ["0.1A", "0.2A", "0.3A", "5.0A", "6.0A"][subIdx];
+        }
+
+        if (cat === 5) {
+            let pfVolts = ["110V", "220V", "264V"];
+            let pfs = ["PF=0.5L", "PF=1.0", "PF=0.8C"];
+            let currents = ["0.5A", "2.5A", "5.0A", "6.0A"];
+
+            let v = pfVolts[Math.floor(rowIdx / 12) % 3];
+            let pf = pfs[Math.floor((rowIdx % 12) / 4)];
+            let c = currents[rowIdx % 4];
+
+            return v + ", " + pf + ", " + c;
+        }
+
+        if (cat === 6 || cat === 7) return "50Hz/220V/5A, " + (rowIdx + 2) + "次谐波"
+
+        return ""
     }
-    return matrix
-}
 
-/* STREAMING_CHUNK: Building the Top Status Cards (Global Dashboard) */
-ColumnLayout {
-    anchors.fill: parent
-    anchors.margins: 20
-    spacing: 20
+    function getLimit(cat, rowIdx, colIdx) {
+        if (cat === 0 || cat === 1) return "0.5%";
 
-    // --- 顶部状态与选择看板 ---
-    RowLayout {
-        Layout.fillWidth: true
-        Layout.preferredHeight: 120
+        if (cat === 2) {
+            let subIdx = rowIdx % 17;
+            let isOnePercent = (
+                subIdx === 0 || subIdx === 1 ||
+                subIdx === 5 || subIdx === 6 || subIdx === 7 ||
+                subIdx === 11 || subIdx === 12 || subIdx === 13
+            );
+            if (isOnePercent) return "1.0%";
+
+            let isZeroSixPercent = (
+                subIdx === 8 || subIdx === 9 || subIdx === 10 ||
+                subIdx === 14 || subIdx === 15 || subIdx === 16
+            );
+            if (isZeroSixPercent) return "0.6%";
+
+            return "0.5%";
+        }
+
+        if (cat === 3) {
+            let subIdx = rowIdx % 13;
+            let isZeroSixTwoFive = (
+                subIdx === 0 || subIdx === 1 ||
+                subIdx === 5 || subIdx === 6 ||
+                subIdx === 10 || subIdx === 11 || subIdx === 12
+            );
+            if (isZeroSixTwoFive) return "0.625%";
+            return "0.50%";
+        }
+
+        if (cat === 4) {
+            let subIdx = rowIdx % 5;
+            if (subIdx === 0 || subIdx === 1) return "1.000%";
+            return "0.50%";
+        }
+
+        if (cat === 5) return "0.5%";
+
+        if (cat === 6) {
+            return colIdx < 3 ? "0.15%" : "5.00%";
+        }
+        if (cat === 7) {
+            return colIdx < 3 ? "0.50%" : "5.00%";
+        }
+
+        return "0.5%";
+    }
+
+    property var meterStates: [
+        { title: "1#仪表", status: "PASS", desc: "全部合格" },
+        { title: "2#仪表", status: "FAIL", desc: "A相电压超标" },
+        { title: "3#仪表", status: "IDLE", desc: "未启用" },
+        { title: "4#仪表", status: "PASS", desc: "全部合格" },
+        { title: "5#仪表", status: "RUNNING", desc: "读取3次谐波..." }
+    ]
+
+    ColumnLayout {
+        anchors.fill: parent
+        anchors.margins: 15
         spacing: 15
 
-        Repeater {
-            model: metersData.length
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                color: cardBg
-                radius: 8
-                // 核心交互：选中状态高亮边框，去除了Qt5特有的DropShadow，使用纯净扁平风格
-                border.width: activeMeterIndex === index ? 3 : 1
-                border.color: activeMeterIndex === index ? themeColor : borderColor
-
-                // 鼠标点击切换当前仪表
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: activeMeterIndex = index
-                }
-
-                // 内容布局
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 10
-                    spacing: 5
-
-                    // 标题栏： 1#仪表
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Label {
-                            text: "仪表 " + (index + 1)
-                            font.pixelSize: 16
-                            font.bold: true
-                            color: textMain
-                        }
-                        Item { Layout.fillWidth: true }
-                        // 状态圆点
-                        Rectangle {
-                            width: 12; height: 12; radius: 6
-                            color: {
-                                let s = metersData[index].status
-                                if(s === 0) return colorIdle
-                                if(s === 1) return colorPass
-                                if(s === 2) return colorFail
-                                return colorRunning
-                            }
-                        }
-                    }
-
-                    // 大字状态 (PASS/FAIL)
-                    Label {
-                        Layout.alignment: Qt.AlignCenter
-                        text: {
-                            let s = metersData[index].status
-                            if(s === 0) return "IDLE"
-                            if(s === 1) return "PASS"
-                            if(s === 2) return "FAIL"
-                            return "RUNNING"
-                        }
-                        font.pixelSize: 32
-                        font.bold: true
-                        color: {
-                            let s = metersData[index].status
-                            if(s === 0) return textSub
-                            if(s === 1) return colorPass
-                            if(s === 2) return colorFail
-                            return colorRunning
-                        }
-                    }
-
-                    // 小字错误描述或进度
-                    Label {
-                        Layout.fillWidth: true
-                        Layout.alignment: Qt.AlignCenter
-                        text: metersData[index].topMsg
-                        font.pixelSize: 12
-                        color: textSub
-                        elide: Text.ElideRight
-                        horizontalAlignment: Text.AlignHCenter
-                    }
-                }
-
-                // 选中时底部的小箭头指示器
-                Rectangle {
-                    visible: activeMeterIndex === index
-                    width: 16; height: 16
-                    color: themeColor
-                    rotation: 45
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.bottom: parent.bottom
-                    anchors.bottomMargin: -8
-                    z: -1 // 藏在卡片下面一半
-                }
-            }
-        }
-    }
-
-    /* STREAMING_CHUNK: Building the Middle Navigation & Filters */
-    // --- 中部导航区 ---
-    Rectangle {
-        Layout.fillWidth: true
-        Layout.preferredHeight: 60
-        color: cardBg
-        border.color: borderColor
-        radius: 8
-
+        // ==========================================
+        // 顶部：带有悬浮放大的仪表看板
+        // ==========================================
         RowLayout {
-            anchors.fill: parent
-            anchors.margins: 10
+            Layout.fillWidth: true
+            Layout.preferredHeight: 180
+            Layout.maximumHeight: 180
             spacing: 20
 
-            // 类别 Tab 导航
-            Row {
-                spacing: 10
-                Repeater {
-                    model: categories.length
-                    Button {
-                        text: categories[index]
-                        font.pixelSize: 14
-                        font.bold: activeCategoryIndex === index
+            Repeater {
+                model: 5
+                delegate: Item {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
 
-                        // 扁平化风格按钮定制
-                        background: Rectangle {
-                            color: activeCategoryIndex === index ? themeColor : "#F0F2F5"
-                            radius: 4
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: activeCategoryIndex === index ? "#FFFFFF" : textMain
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
+                    property string status: meterStates[index].status
+                    property color bgColor: status === "PASS" ? "#4CAF50" :
+                                            status === "FAIL" ? "#F44336" :
+                                            status === "RUNNING" ? "#2196F3" : "#9E9E9E"
 
-                        onClicked: activeCategoryIndex = index
+                    property bool isSelected: selectedMeterIndex === index
+
+                    MouseArea {
+                        id: cardMouseArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: selectedMeterIndex = index
                     }
-                }
-            }
 
-            Item { Layout.fillWidth: true } // 弹簧把 CheckBox 推到右边
+                    // 悬浮弹起距离动画
+                    property real currentMargin: isSelected ? 4 : (cardMouseArea.containsMouse ? 8 : 12)
+                    Behavior on currentMargin { NumberAnimation { duration: 250; easing.type: Easing.OutBack } }
 
-            // 过滤 CheckBox
-            CheckBox {
-                text: "仅显示超标/异常项 (FAIL)"
-                checked: showFailOnly
-                onCheckedChanged: showFailOnly = checked
-                font.pixelSize: 14
-                contentItem: Text {
-                    text: parent.text
-                    font: parent.font
-                    color: showFailOnly ? colorFail : textMain
-                    verticalAlignment: Text.AlignVCenter
-                    leftPadding: parent.indicator.width + parent.spacing
-                }
-            }
-        }
-    }
+                    // 合并主卡片和倒三角
+                    Item {
+                        id: shapeSource
+                        anchors.fill: parent
+                        anchors.margins: currentMargin
+                        visible: false // 仅供 MultiEffect 使用
 
-    /* STREAMING_CHUNK: Building the High-Density Data Matrix Engine */
-    // --- 底部核心数据矩阵区 ---
-    Rectangle {
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-        color: cardBg
-        border.color: borderColor
-        radius: 8
-        clip: true
-
-        // 当前仪表的矩阵数据
-        property var currentMatrix: {
-            if(metersData.length === 0) return {rows:[], cols:[], cells:[]}
-            let meter = metersData[activeMeterIndex]
-            if(!meter.isEnabled) return {rows:[], cols:[], cells:[]}
-            return meter.categories[activeCategoryIndex]
-        }
-
-        // 无数据或未启用提示
-        Label {
-            visible: !metersData[activeMeterIndex].isEnabled
-            anchors.centerIn: parent
-            text: "该仪表未启用，无校准数据。"
-            font.pixelSize: 18
-            color: textSub
-        }
-
-        // 矩阵主视图 (带滚动条，完美兼容 30 行谐波)
-        ScrollView {
-            anchors.fill: parent
-            anchors.margins: 15
-            visible: metersData[activeMeterIndex].isEnabled
-            contentWidth: gridContent.width
-            contentHeight: gridContent.height
-
-            Column {
-                id: gridContent
-                spacing: 0
-
-                // 1. 表头行 (第一列为空，后面是 Ua, Ub, Uc 等)
-                Row {
-                    Rectangle {
-                        width: 180; height: 40 // 第一列更宽，容纳测试工况名字
-                        color: "#F5F7FA"; border.color: borderColor; border.width: 1
-                        Label { anchors.centerIn: parent; text: "测试条件"; font.bold: true; color: textMain }
-                    }
-                    Repeater {
-                        model: parent.parent.parent.currentMatrix.cols
                         Rectangle {
-                            width: 140; height: 40
-                            color: "#F5F7FA"; border.color: borderColor; border.width: 1
-                            Label { anchors.centerIn: parent; text: modelData; font.bold: true; color: textMain }
+                            id: mainShadowShape
+                            anchors.fill: parent
+                            anchors.bottomMargin: 14
+                            radius: 8
+                            color: bgColor
+                        }
+
+                        Rectangle {
+                            visible: isSelected
+                            width: 20; height: 20
+                            rotation: 45
+                            color: bgColor
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.verticalCenter: mainShadowShape.bottom
                         }
                     }
-                }
 
-                // 2. 数据行遍历
-                Repeater {
-                    model: parent.parent.currentMatrix.rows.length
-                    delegate: Item {
-                        id: rowWrapper
-                        width: rowLayout.width
-                        // 【核心过滤逻辑】：如果勾选了仅看Fail，且这行没有Fail，则高度设为0隐藏
-                        property bool hasFailInRow: {
-                            let cells = parent.parent.parent.currentMatrix.cells[index]
-                            for(let i=0; i<cells.length; i++) {
-                                if(cells[i].isFail) return true
-                            }
-                            return false
+                    // 3. 干净锐利的光影层 (不再忽明忽暗，稳定渲染)
+                    MultiEffect {
+                        source: shapeSource
+                        anchors.fill: shapeSource
+                        shadowEnabled: true
+                        // 泛出稳定的同色光
+                        shadowColor: bgColor
+                        // 固定的高品质模糊
+                        shadowBlur: 1.0
+                        // 提亮
+                        shadowOpacity: 0.6
+                        // 投影拉长体现浮起
+                        shadowVerticalOffset:  8
+
+                        Behavior on shadowOpacity { NumberAnimation { duration: 250 } }
+                        Behavior on shadowVerticalOffset { NumberAnimation { duration: 250 } }
+                        Behavior on shadowColor { ColorAnimation { duration: 250 } }
+                    }
+
+                    // 4. 真实可见UI层
+                    Item {
+                        anchors.fill: parent
+                        anchors.margins: currentMargin
+
+                        // 倒三角底层
+                        Rectangle {
+                            visible: isSelected
+                            width: 20; height: 20
+                            rotation: 45
+                            color: bgColor
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.verticalCenter: mainVisCard.bottom
                         }
-                        height: (root.showFailOnly && !hasFailInRow) ? 0 : 70
-                        visible: height > 0
-                        clip: true
 
-                        Row {
-                            id: rowLayout
-                            // 行标题 (例如: "20% (44V)")
+                        // 主可视卡片
+                        Rectangle {
+                            id: mainVisCard
+                            anchors.fill: parent
+                            anchors.bottomMargin: 14
+                            radius: 8
+                            color: bgColor
+                            border.color: isSelected ? Qt.lighter(bgColor, 1.2) : "transparent"
+                            border.width: isSelected ? 1 : 0
+                            clip: true
+
+                            // 顶部深色条
                             Rectangle {
-                                width: 180; height: 70
-                                color: "#FFFFFF"; border.color: borderColor; border.width: 1
-                                Label {
-                                    anchors.centerIn: parent
-                                    text: parent.parent.parent.parent.parent.currentMatrix.rows[index]
-                                    color: textMain
-                                    font.pixelSize: 13
+                                width: parent.width
+                                height: 35
+                                color: Qt.darker(bgColor, 1.15)
+                                radius: 8
+                                Rectangle {
+                                    width: parent.width; height: 8;
+                                    anchors.bottom: parent.bottom; color: parent.color
+                                }
+
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 12
+                                    anchors.rightMargin: 12
+                                    Label {
+                                        text: meterStates[index].title
+                                        color: "white"
+                                        font.bold: true
+                                        font.pixelSize: 16
+                                        Layout.fillWidth: true
+                                    }
+
+                                    Label {
+                                        id: stateIcon
+                                        text: status === "FAIL" ? "❗" : (status === "PASS" ? "✔" : (status === "RUNNING" ? "⚙" : "○"))
+                                        color: "white"
+                                        font.bold: true
+                                        font.pixelSize: 16
+
+                                        RotationAnimation {
+                                            target: stateIcon
+                                            loops: Animation.Infinite
+                                            from: 0; to: 360
+                                            duration: 1500
+                                            running: status === "RUNNING"
+                                        }
+                                    }
                                 }
                             }
 
-                            // 单元格数据遍历
+                            // 大字状态
+                            ColumnLayout {
+                                anchors.centerIn: parent
+                                spacing: 0
+                                Label {
+                                    text: status
+                                    color: "white"
+                                    font.pixelSize: 42
+                                    font.bold: true
+                                    font.letterSpacing: 2
+                                    Layout.alignment: Qt.AlignCenter
+                                }
+                                Label {
+                                    text: status === "PASS" ? "合格" : status === "FAIL" ? "不合格" : status === "IDLE" ? "未启用" : "正在测试"
+                                    color: "white"
+                                    font.pixelSize: 18
+                                    font.bold: true
+                                    Layout.alignment: Qt.AlignCenter
+                                }
+                            }
+
+                            // 底部小字
+                            Label {
+                                anchors.bottom: parent.bottom
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                anchors.bottomMargin: 10
+                                text: meterStates[index].desc
+                                color: "white"
+                                font.pixelSize: 14
+                                horizontalAlignment: Text.AlignHCenter
+                                opacity: 0.9
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ==========================================
+        // 中层：大尺寸导航按钮
+        // ==========================================
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 12
+
+            Repeater {
+                model: categories
+                delegate: Button {
+                    text: modelData
+                    font.pixelSize: 20
+                    font.bold: selectedCategory === index
+
+                    Layout.preferredHeight: 50
+                    Layout.preferredWidth: implicitWidth + 40
+
+                    background: Rectangle {
+                        color: selectedCategory === index ? themeColor : "#F0F2F5"
+                        radius: 6
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        font: parent.font
+                        color: selectedCategory === index ? "#FFFFFF" : textMain
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    onClicked: selectedCategory = index
+                }
+            }
+        }
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            color: "white"
+            border.color: "#C0C0C0"
+            border.width: 1
+
+            ColumnLayout {
+                anchors.fill: parent
+                spacing: 0
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    height: 45
+                    spacing: 0
+
+                    Rectangle {
+                        width: 240
+                        height: parent.height
+                        color: "#F5F7FA"
+                        border.color: "#C0C0C0"
+                        border.width: 1
+                        Label {
+                            anchors.centerIn: parent
+                            text: "测试条件"
+                            font.bold: true
+                            font.pixelSize: 16
+                            color: textMain
+                        }
+                    }
+
+                    Repeater {
+                        model: getColumns(selectedCategory)
+                        delegate: Rectangle {
+                            Layout.fillWidth: true
+                            height: parent.height
+                            color: "#F5F7FA"
+                            border.color: "#C0C0C0"
+                            border.width: 1
+                            Label {
+                                anchors.centerIn: parent
+                                text: modelData
+                                font.bold: true
+                                font.pixelSize: 16
+                                color: textMain
+                            }
+                        }
+                    }
+                }
+
+                ScrollView {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    clip: true
+                    ScrollBar.vertical.policy: ScrollBar.AlwaysOn
+
+                    ListView {
+                        width: parent.width
+                        model: getRowCount(selectedCategory)
+
+                        delegate: RowLayout {
+                            width: ListView.view.width
+                            height: 40
+                            spacing: 0
+
+                            property int rowIdx: index
+                            visible: true
+
+                            Rectangle {
+                                width: 240
+                                height: parent.height
+                                color: rowIdx % 2 === 0 ? "#FFFFFF" : "#FAFAFA"
+                                border.color: "#E0E0E0"
+                                border.width: 1
+                                Label {
+                                    anchors.centerIn: parent
+                                    text: getRowHeader(selectedCategory, rowIdx)
+                                    font.bold: true
+                                    font.pixelSize: 14
+                                    color: textMain
+                                }
+                            }
+
                             Repeater {
-                                model: parent.parent.parent.parent.currentMatrix.cols.length
+                                model: getColumns(selectedCategory).length
                                 delegate: Rectangle {
-                                    width: 140; height: 70
-                                    border.color: borderColor; border.width: 1
+                                    Layout.fillWidth: true
+                                    height: parent.height
+                                    border.color: "#E0E0E0"
+                                    border.width: 1
 
-                                    // 提取单元格数据
-                                    property var cellData: parent.parent.parent.parent.parent.currentMatrix.cells[rowWrapper.Positioner.index][index]
+                                    color: rowIdx % 2 === 0 ? "#FFFFFF" : "#FAFAFA"
 
-                                    // 【视觉告警】：如果是 Fail，背景微微泛红
-                                    color: cellData.isFail ? "#FEF0F0" : "#FFFFFF"
-
-                                    Column {
+                                    Label {
                                         anchors.centerIn: parent
-                                        spacing: 4
-                                        // 上排大字：误差 %
-                                        Label {
-                                            anchors.horizontalCenter: parent.horizontalCenter
-                                            text: cellData.errStr
-                                            font.pixelSize: 16
-                                            font.bold: true
-                                            // 【视觉告警】：字变鲜红
-                                            color: cellData.isFail ? colorFail : colorPass
-                                        }
-                                        // 下排小字：仪表读数
-                                        Label {
-                                            anchors.horizontalCenter: parent.horizontalCenter
-                                            text: "读数: " + cellData.valStr
-                                            font.pixelSize: 11
-                                            color: cellData.isFail ? colorFail : textSub
-                                        }
+                                        text: getLimit(selectedCategory, rowIdx, model.index)
+                                        font.bold: true
+                                        font.pixelSize: 16
+                                        color: "#388E3C"
                                     }
                                 }
                             }
@@ -396,7 +480,4 @@ ColumnLayout {
             }
         }
     }
-}
-
-
 }

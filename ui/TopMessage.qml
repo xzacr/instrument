@@ -10,7 +10,7 @@ Item {
     property string text: "Notification text"
     property string type: "success" // 可选: success, info, error, warning
 
-    width: 400
+    width: 500
     height: 64
     z: 999
 
@@ -43,7 +43,7 @@ Item {
         color: currentStyle.bg
 
         RowLayout {
-            anchors.fill: parent
+            anchors.centerIn: parent
             anchors.leftMargin: 20
             anchors.rightMargin: 20
             spacing: 15

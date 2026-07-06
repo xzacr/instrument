@@ -283,7 +283,7 @@ SUCCESS_EXIT:
     srcPort.waitForBytesWritten(500);
     if (srcPort.waitForReadyRead(500)) {
         qInfo().noquote() << "[Rx 源强停确认]" << srcPort.readAll().toHex(' ').toUpper();
-        emit srcMessage("已停止", "success");
+        emit srcMessage("Stop / 已停止", "success");
     }
 }
 
