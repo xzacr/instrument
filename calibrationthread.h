@@ -9,11 +9,35 @@ class CalibrationThread : public QThread
 {
     Q_OBJECT
 public:
+    enum CalibStep{
+        Step_Unlock  = 0,  // 解除写保护
+        Step_Prepare = 1,  // 校准准备
+        Step_VI_10   = 2,  // 电压电流校准 (PF=1.0)
+        Step_VI_05   = 3,  // 电压电流校准 (PF=0.5)
+        Step_Save    = 4,  // 参数固化保存
+        Step_Reset   = 5   // 等待复位
+    };
+    enum StepState{
+        State_Wait      = 0,  // 等待中
+        State_Running   = 1,  // 正在执行
+        State_Success   = 2,  // 成功
+        State_Failed    = 3,  // 失败
+    };
+    enum WorkMode {
+        Mode_FullAuto = 0,
+        Mode_ErrorCalc = 1
+    };
+    struct MeterTask {
+        int uiIndex;      // QML 界面上的索引 (0~4)
+        quint8 address;   // 物理 Modbus 地址 (1~5)
+        bool isEnabled;   // 🌟 新增：用户是否勾选了启用
+        bool isAlive;     // 淘汰标志位：true表示存活继续，false表示这台表已挂
+    };
     explicit CalibrationThread(QObject *parent = nullptr);
     ~CalibrationThread() override;
 
     // 接收界面的配置
-    void setConfig(const QString &srcPort, int srcBaud, const QString &meterPort, int meterBaud, const QVariantList &meterConfigs);
+    void setConfig(int mode, const QString &srcPort, int srcBaud, const QString &meterPort, int meterBaud, const QVariantList &meterConfigs);
     void stopCalibration();
 
 signals:
@@ -33,6 +57,12 @@ private slots:
     void onMeterPortError(QSerialPort::SerialPortError error);
 
 private:
+    // 将 run 逻辑抽离成独立的子流水线
+    void runCalibrationFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<MeterTask> &meters, int &aliveCount);
+    // 专门用于测误差的独立流水线
+    void runErrorCalcFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<MeterTask> &meters, int &aliveCount);
+
+
     // 标准源开机握手
     bool handshakeSource(QSerialPort &port);
     // 标准源：发送并死等指定的应答
@@ -92,26 +122,10 @@ private:
     // 六通道全量高精度查询帧
     const QByteArray m_queryAllCmd = QByteArray::fromHex("68 6C 00 68 00 91 01 00 00 00 00 02 00 00 00 00 26 00 00 00 00 03 00 00 00 00 04 00 00 00 00 27 00 00 00 00 05 00 00 00 00 06 00 00 00 00 28 00 00 00 00 07 00 00 00 00 08 00 00 00 00 29 00 00 00 00 09 00 00 00 00 0A 00 00 00 00 2A 00 00 00 00 0B 00 00 00 00 0C 00 00 00 00 2B 00 00 00 00 0E 00 00 00 00 0F 00 00 00 00 EF 16");
 
-    enum CalibStep{
-        Step_Unlock  = 0,  // 解除写保护
-        Step_Prepare = 1,  // 校准准备
-        Step_VI_10   = 2,  // 电压电流校准 (PF=1.0)
-        Step_VI_05   = 3,  // 电压电流校准 (PF=0.5)
-        Step_Save    = 4,  // 参数固化保存
-        Step_Reset   = 5   // 等待复位
-    };
-    enum StepState{
-        State_Wait      = 0,  // 等待中
-        State_Running   = 1,  // 正在执行
-        State_Success   = 2,  // 成功
-        State_Failed    = 3,  // 失败
-    };
-    struct MeterTask {
-        int uiIndex;      // QML 界面上的索引 (0~4)
-        quint8 address;   // 物理 Modbus 地址 (1~5)
-        bool isAlive;     // 淘汰标志位：true表示存活继续，false表示这台表已挂
-    };
+
     QList<MeterTask> m_meterTasks;
+    // 新增一个成员变量保存当前模式
+    WorkMode m_workMode = Mode_FullAuto;
 };
 
 #endif // CALIBRATIONTHREAD_H

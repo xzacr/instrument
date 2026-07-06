@@ -14,8 +14,9 @@ CalibrationThread::~CalibrationThread()
     }
 }
 
-void CalibrationThread::setConfig(const QString &srcPort, int srcBaud, const QString &meterPort, int meterBaud, const QVariantList &meterConfigs)
+void CalibrationThread::setConfig(int mode, const QString &srcPort, int srcBaud, const QString &meterPort, int meterBaud, const QVariantList &meterConfigs)
 {
+    m_workMode = static_cast<WorkMode>(mode);
     m_srcPortName = srcPort; m_srcBaud = srcBaud;
     m_meterPortName = meterPort; m_meterBaud = meterBaud;
 
@@ -26,11 +27,9 @@ void CalibrationThread::setConfig(const QString &srcPort, int srcBaud, const QSt
         bool isEnabled = map.value("enabled").toBool();
         quint8 address = (quint8)map.value("address").toUInt();
 
-        // 将其加入任务列表。
-        // 精髓：如果前端没有勾选“启用”，isEnabled 为 false。
-        // 我们直接把它存入名单，但 isAlive 置为 false。
-        // 这样 run() 里面的大循环遇到它时，就会自动 continue 跳过它！
-        m_meterTasks.append({i, address, isEnabled});
+        // 🌟 核心改动：同时初始化 isEnabled 和 isAlive。
+        // isAlive 的初始状态直接继承 isEnabled。
+        m_meterTasks.append({i, address, isEnabled, isEnabled});
     }
 }
 
@@ -38,9 +37,6 @@ void CalibrationThread::stopCalibration() {
     m_isRunning = false;
 }
 
-// =========================================================================
-// 核心流水线主引擎（经典的线性阻塞结构 + 统一安全出口）
-// =========================================================================
 void CalibrationThread::run()
 {
     m_isRunning = true;
@@ -77,22 +73,61 @@ void CalibrationThread::run()
     // 🌟 提取动态名单
     QList<MeterTask> meters = m_meterTasks;
     int aliveCount = 0;
+    for (auto &m : meters) {
+        if (m.isEnabled) aliveCount++;
+    }
 
+    // ================= 分流点 1：执行全自动校准 =================
+    if (m_workMode == Mode_FullAuto) {
+        runCalibrationFlow(srcPort, meterPort, meters, aliveCount);
+    }
+
+    // ================= 分流点 2：执行误差计算 =================
+    if (m_isRunning && aliveCount > 0 && (m_workMode == Mode_FullAuto || m_workMode == Mode_ErrorCalc)) {
+        runErrorCalcFlow(srcPort, meterPort, meters, aliveCount);
+    }
+
+    // 全部通关或彻底结束！
+    if (m_isRunning) {
+        qInfo() << "====== 流程圆满结束，有效仪表数：" << aliveCount << " ======";
+        emit showTopMessage(QString("测试流程执行完毕，成功 %1 台").arg(aliveCount), "success");
+        goto SUCCESS_EXIT;
+    }
+
+ABORT_PROCESS:
+    qWarning() << ">>> 流程异常中断！正在向物理总线追发强停命令...";
+
+SUCCESS_EXIT:
+    qInfo() << "正在停止标准源...";
+    emit srcMessage("正在停止标准源...", "success");
+    srcPort.write(m_stopCmd);
+    srcPort.waitForBytesWritten(500);
+    if (srcPort.waitForReadyRead(500)) {
+        qInfo().noquote() << "[Rx 源强停确认]" << srcPort.readAll().toHex(' ').toUpper();
+        emit srcMessage("Stop / 已停止", "success");
+    }
+}
+
+// -------------------------------------------------------------------------
+// 抽离出的纯校准流水线 (注意将原来的 goto ABORT_PROCESS 全部换成了 return)
+// -------------------------------------------------------------------------
+void CalibrationThread::runCalibrationFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<MeterTask> &meters, int &aliveCount)
+{
     // =========================================================
     // 阶段一：标准源输出 220V 5A 1.0PF
     // =========================================================
     qDebug("1. 下发 220V 5A 1.0PF 配置...");
-    if (!sendSourceCmd(srcPort, m_cfgCmd1)) goto ABORT_PROCESS;
+    if (!sendSourceCmd(srcPort, m_cfgCmd1)) return;
 
     qDebug("2. 启动标准源输出...");
     emit srcMessage("220V/5A/PF=1.0 等待源稳定...", "info");
-    if (!sendSourceCmd(srcPort, m_startCmd, 6000)) goto ABORT_PROCESS;
+    if (!sendSourceCmd(srcPort, m_startCmd, 6000)) return;
 
     qInfo() << "正在全通道监测物理输出，验证三相配置...";
-    if (!waitSourceStable(srcPort, 1.0f, 1000)) goto ABORT_PROCESS;
+    if (!waitSourceStable(srcPort, 1.0f, 1000)) return;
 
     emit srcMessage("220V/5A/PF=1.0", "success");
-    if (!m_isRunning) goto ABORT_PROCESS;
+    if (!m_isRunning) return;
 
     // =========================================================
     // 步骤 0：解除写保护
@@ -110,13 +145,12 @@ void CalibrationThread::run()
             aliveCount++;
         } else {
             emit meterStepStatusChanged(meter.uiIndex, Step_Unlock, State_Failed);
-            //emit meterMessage("解除写保护超时失败", "error", meter.uiIndex);
             meter.isAlive = false; // 淘汰
         }
     }
     if (aliveCount == 0) {
         emit showTopMessage("仪表全部失败，校准终止", "error");
-        goto ABORT_PROCESS;
+        return;
     }
 
     // =========================================================
@@ -128,11 +162,9 @@ void CalibrationThread::run()
         if (!meter.isAlive) continue;
         emit meterStepStatusChanged(meter.uiIndex, Step_Prepare, State_Running);
 
-        // 先置空闲
         writeMeterReg(meterPort, meter.address, m_regState, 0);
         bool ok = waitMeterState(meterPort, meter.address, m_regState, 0, 2000);
 
-        // 再写 1 准备
         if (ok) {
             writeMeterReg(meterPort, meter.address, m_regState, 1);
             ok = waitMeterState(meterPort, meter.address, m_regState, 2, 2000);
@@ -143,13 +175,12 @@ void CalibrationThread::run()
             aliveCount++;
         } else {
             emit meterStepStatusChanged(meter.uiIndex, Step_Prepare, State_Failed);
-            //emit meterMessage("校准准备超时失败", "error", meter.uiIndex);
             meter.isAlive = false;
         }
     }
     if (aliveCount == 0) {
         emit showTopMessage("仪表全部失败，校准终止", "error");
-        goto ABORT_PROCESS;
+        return;
     }
 
     // =========================================================
@@ -167,31 +198,30 @@ void CalibrationThread::run()
             aliveCount++;
         } else {
             emit meterStepStatusChanged(meter.uiIndex, Step_VI_10, State_Failed);
-            //emit meterMessage("1.0PF 校准参数计算失败", "error", meter.uiIndex);
             meter.isAlive = false;
         }
     }
     if (aliveCount == 0) {
         emit showTopMessage("仪表全部失败，校准终止", "error");
-        goto ABORT_PROCESS;
+        return;
     }
-    if (!m_isRunning) goto ABORT_PROCESS;
+    if (!m_isRunning) return;
 
     // =========================================================
     // 阶段三：标准源输出 220V 5A 0.5PF
     // =========================================================
     qDebug("7. 切换源至 0.5PF...");
-    if (!sendSourceCmd(srcPort, m_cfgCmd2)) goto ABORT_PROCESS;
+    if (!sendSourceCmd(srcPort, m_cfgCmd2)) return;
 
     qDebug("8. 启动标准源输出...");
     emit srcMessage("220V/5A/PF=0.5 等待源稳定...", "info");
-    if (!sendSourceCmd(srcPort, m_startCmd, 6000)) goto ABORT_PROCESS;
+    if (!sendSourceCmd(srcPort, m_startCmd, 6000)) return;
 
     qInfo() << "正在全通道监测物理输出，验证三相全量配置(0.5PF)...";
-    if (!waitSourceStable(srcPort, 0.5f, 1000)) goto ABORT_PROCESS;
+    if (!waitSourceStable(srcPort, 0.5f, 1000)) return;
 
     emit srcMessage("220V/5A/PF=0.5", "success");
-    if (!m_isRunning) goto ABORT_PROCESS;
+    if (!m_isRunning) return;
 
     // =========================================================
     // 步骤 3：电压电流校准 (PF=0.5)
@@ -208,34 +238,31 @@ void CalibrationThread::run()
             aliveCount++;
         } else {
             emit meterStepStatusChanged(meter.uiIndex, Step_VI_05, State_Failed);
-            //emit meterMessage("0.5PF 相位校准失败", "error", meter.uiIndex);
             meter.isAlive = false;
         }
     }
     if (aliveCount == 0) {
         emit showTopMessage("仪表全部失败，校准终止", "error");
-        goto ABORT_PROCESS;
+        return;
     }
 
     // =========================================================
     // 步骤 4：参数固化保存
-    // 注：根据你之前的协议，计算完成即代表可保存，这里走个过场更新 UI 状态
     // =========================================================
     qInfo() << ">>> 正在更新 [参数固化保存] 状态...";
     for (auto &meter : meters) {
         if (!meter.isAlive) continue;
         emit meterStepStatusChanged(meter.uiIndex, Step_Save, State_Running);
-        QThread::msleep(100); // 视觉缓冲
+        QThread::msleep(100);
         emit meterStepStatusChanged(meter.uiIndex, Step_Save, State_Success);
     }
 
     // =========================================================
-    // 步骤 5：等待复位 (💥 极度优雅的并发休眠优化)
+    // 步骤 5：等待复位
     // =========================================================
     qInfo() << ">>> 开始批量下发 [复位指令]...";
     aliveCount = 0;
 
-    // 动作A：给所有存活的表瞬间连发复位指令（不等待响应）
     for (auto &meter : meters) {
         if (!meter.isAlive) continue;
         emit meterStepStatusChanged(meter.uiIndex, Step_Reset, State_Running);
@@ -243,11 +270,9 @@ void CalibrationThread::run()
         QThread::msleep(500);
     }
 
-    // 动作B：所有人一起共享这 1.5 秒的休眠时间！不需要每台表傻傻睡 1.5 秒！
     qInfo() << ">>> 所有表复位已下发，总线静默 1500ms 等待单片机重启...";
     QThread::msleep(2000);
 
-    // 动作C：挨个点名收作业，看是不是都变回了 0
     for (auto &meter : meters) {
         if (!meter.isAlive) continue;
         if (waitMeterState(meterPort, meter.address, m_regState, 0, 1000)) {
@@ -255,35 +280,34 @@ void CalibrationThread::run()
             aliveCount++;
         } else {
             emit meterStepStatusChanged(meter.uiIndex, Step_Reset, State_Failed);
-            //emit meterMessage("设备未能在复位后正常唤醒", "error", meter.uiIndex);
             meter.isAlive = false;
         }
     }
 
     if (aliveCount == 0) {
         emit showTopMessage("仪表全部失败，校准终止", "error");
-        goto ABORT_PROCESS;
+        return;
     }
+}
 
-    // 全部通关！
+// -------------------------------------------------------------------------
+// 独立的误差计算流水线 (在这里写死循环打各种电压电流点)
+// -------------------------------------------------------------------------
+void CalibrationThread::runErrorCalcFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<MeterTask> &meters, int &aliveCount)
+{
+    qInfo() << "====== 正在启动高并发误差计算流水线 ======";
+    emit showTopMessage("正在执行多维误差数据采集...", "info");
+
+    // TODO: 我们下一步将在这里补充：
+    // 1. 发送标准源新测点命令 (比如 20% 100% 等等)
+    // 2. 批量读取仪表寄存器 (如 0x0010) 并计算精度
+    // 3. 把算出的 JSON 推给前端 QML
+
+    QThread::msleep(2000); // 暂用睡眠替代真实逻辑，等待您的地址表
+
     if (m_isRunning) {
-        qInfo() << "====== 淘汰制校准流程圆满结束，存活表数：" << aliveCount << " ======";
-        emit showTopMessage(QString("校准完毕，成功校准 %1 台仪表").arg(aliveCount), "success");
-        goto SUCCESS_EXIT;
-    }
-
-ABORT_PROCESS:
-    qWarning() << ">>> 流程异常中断！正在向物理总线追发强停命令...";
-    //emit calirResult("流程异常中断！", "error");
-
-SUCCESS_EXIT:
-    qInfo() << "正在停止标准源...";
-    emit srcMessage("正在停止标准源...", "success");
-    srcPort.write(m_stopCmd);
-    srcPort.waitForBytesWritten(500);
-    if (srcPort.waitForReadyRead(500)) {
-        qInfo().noquote() << "[Rx 源强停确认]" << srcPort.readAll().toHex(' ').toUpper();
-        emit srcMessage("Stop / 已停止", "success");
+        qInfo() << "误差计算流程执行完毕！";
+        emit showTopMessage("误差测试数据采集完毕", "success");
     }
 }
 

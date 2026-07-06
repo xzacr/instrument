@@ -18,7 +18,8 @@ public:
     QStringList availablePorts() const { return m_availablePorts; }
 
     Q_INVOKABLE void refreshPorts(); // 刷新串口列表
-    Q_INVOKABLE void startCalibration(const QString &srcPort, int srcBaud, const QString &meterPort, int meterBaud, const QVariantList &meterConfigs);
+    // 🌟 将原有方法改为更通用的 startTask，并允许传空参数以利用缓存
+    Q_INVOKABLE void startTask(int mode, const QString &srcPort = "", int srcBaud = 0, const QString &meterPort = "", int meterBaud = 0, const QVariantList &meterConfigs = QVariantList());
     Q_INVOKABLE void stopCalibration();
 
     bool isCalibrating() const { return m_calibThread->isRunning(); }
@@ -35,6 +36,13 @@ signals:
 private:
     CalibrationThread *m_calibThread;
     QStringList m_availablePorts;
+
+    // 🌟 缓存全局端口配置（使得无需在 ErrorCalc 中再配一次）
+    QString m_lastSrcPort;
+    int m_lastSrcBaud = 38400;
+    QString m_lastMeterPort;
+    int m_lastMeterBaud = 9600;
+    QVariantList m_lastMeterConfigs;
 };
 
 #endif // INSTRUMENT_H

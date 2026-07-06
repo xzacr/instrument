@@ -9,6 +9,7 @@ Item {
     property color themeColor: "#1976D2"
     property color textMain: "#333333"
     property color textSub: "#606266"
+    readonly property int mode_ErrorCalc: 0
 
     property int selectedMeterIndex: 1
     property int selectedCategory: 0
@@ -368,6 +369,47 @@ Item {
                     }
 
                     onClicked: selectedCategory = index
+                }
+            }
+
+            // 弹簧：占据剩余所有空间，把后面的按钮硬推到最右侧
+            Item { Layout.fillWidth: true }
+
+            // 二合一启动/停止按钮
+            Button {
+                id: errorTestBtn
+                Layout.preferredHeight: 50
+                Layout.preferredWidth: 160
+
+                // 监听底层的运行状态
+                property bool isRunning: typeof ins !== "undefined" ? ins.isCalibrating : false
+
+                background: Rectangle {
+                    // 运行时显示红色警示，闲置时显示主题蓝色，按下时略微变暗
+                    color: parent.pressed ? Qt.darker((errorTestBtn.isRunning ? "#F44336" : themeColor), 1.1) : (errorTestBtn.isRunning ? "#F44336" : themeColor)
+                    radius: 6
+                }
+
+                contentItem: Text {
+                    // 根据状态切换文本
+                    text: errorTestBtn.isRunning ? "停止测试" : "开始测试"
+                    font.bold: true
+                    font.pixelSize: 18
+                    color: "#FFFFFF"
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+
+                onClicked: {
+                    if (isRunning) {
+                        if (typeof ins !== "undefined") {
+                            ins.stopCalibration();
+                        }
+                    } else {
+                        // TODO: 在这里调用底层的 C++ 方法，比如传入 Mode=1 代表单测误差
+                        ins.startTask(mode_ErrorCalc);
+                        console.log("触发开始误差测试！")
+                    }
                 }
             }
         }

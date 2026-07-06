@@ -28,12 +28,27 @@ void Instrument::refreshPorts()
     }
 }
 
-void Instrument::startCalibration(const QString &srcPort, int srcBaud, const QString &meterPort, int meterBaud, const QVariantList &meterConfigs)
+// 🌟 新的启动统一分发器
+void Instrument::startTask(int mode, const QString &srcPort, int srcBaud, const QString &meterPort, int meterBaud, const QVariantList &meterConfigs)
 {
     if (m_calibThread->isRunning()) return;
 
-    // 🌟 透传给线程去解析
-    m_calibThread->setConfig(srcPort, srcBaud, meterPort, meterBaud, meterConfigs);
+    // 如果 QML 传了实际配置（比如在校准页面），我们就更新缓存
+    if (!srcPort.isEmpty()) {
+        m_lastSrcPort = srcPort;
+        m_lastSrcBaud = srcBaud;
+        m_lastMeterPort = meterPort;
+        m_lastMeterBaud = meterBaud;
+        m_lastMeterConfigs = meterConfigs;
+    }
+
+    if (m_lastMeterConfigs.isEmpty()) {
+        emit showTopMsg("未发现有效的仪表配置，请先在校准页面勾选！", "error");
+        return;
+    }
+
+    // 透传给底层线程去解析并运行
+    m_calibThread->setConfig(mode, m_lastSrcPort, m_lastSrcBaud, m_lastMeterPort, m_lastMeterBaud, m_lastMeterConfigs);
     m_calibThread->start();
 }
 

@@ -16,6 +16,7 @@ Item {
     readonly property color textSub: "#555555"    // 辅助灰
     readonly property int titleSize: 22
     readonly property int subSize: 18
+    readonly property int mode_FullAuto: 0
     // 绘制全局高级灰底色
     Rectangle {
         anchors.fill: parent
@@ -304,7 +305,7 @@ Item {
                                 topMsg.display("请至少勾选启用一台仪表！", "error")
                                 return
                             }
-                            ins.startCalibration(srcport.currentText, srcbaud.currentValue, meterport.currentText, meterbaud.currentValue, meterConfigs)
+                            ins.startTask(mode_FullAuto,srcport.currentText, srcbaud.currentValue, meterport.currentText, meterbaud.currentValue, meterConfigs)
                             topMsg.display("全自动校准已启动", "success")
                         }
                     }
