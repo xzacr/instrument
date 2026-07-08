@@ -17,6 +17,72 @@ Item {
     readonly property int titleSize: 22
     readonly property int subSize: 18
     readonly property int mode_FullAuto: 0
+
+    function validateAndGetConfig() {
+        let meterConfigs = []
+        let validationPassed = true
+        let enabledCount = 0
+        let seenSns = []
+        let seenAddresses = []
+
+        // 读取当前页面上的串口信息
+        let srcPortName = srcport.currentText
+        let srcBaudRate = srcbaud.currentValue
+        let meterPortName = meterport.currentText
+        let meterBaudRate = meterbaud.currentValue
+
+        for (let i = 0; i < meterRepeater.count; i++) {
+            let item = meterRepeater.itemAt(i)
+            item.resetAllSteps()
+
+            if (item.isEnabled) {
+                enabledCount++
+
+                if (item.meterSn === "") {
+                    topMsg.display("仪表 " + (i + 1) + " 编号不能为空！", "error")
+                    return null // 直接终止并返回空
+                }
+
+                if (seenSns.includes(item.meterSn)) {
+                    topMsg.display("仪表编号存在重复!", "error")
+                    return null
+                }
+                seenSns.push(item.meterSn)
+
+                if (seenAddresses.includes(item.meterAddr)) {
+                    topMsg.display("通信地址存在冲突!", "error")
+                    return null
+                }
+                seenAddresses.push(item.meterAddr)
+
+                meterConfigs.push({
+                    "enabled": true,
+                    "address": item.meterAddr,
+                    "sn": item.meterSn
+                })
+            } else {
+                meterConfigs.push({
+                    "enabled": false,
+                    "address": item.meterAddr,
+                    "sn": ""
+                })
+            }
+        }
+
+        if (enabledCount === 0) {
+            topMsg.display("请至少勾选启用一台仪表！", "error")
+            return null
+        }
+
+        // 校验完美通过，把所有数据打包成一个字典返回！
+        return {
+            "srcPort": srcPortName,
+            "srcBaud": srcBaudRate,
+            "meterPort": meterPortName,
+            "meterBaud": meterBaudRate,
+            "meters": meterConfigs
+        }
+    }
     // 绘制全局高级灰底色
     Rectangle {
         anchors.fill: parent
@@ -196,7 +262,7 @@ Item {
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 80
-            color: cardBg             // 整个控制条铺满白底
+            color: cardBg              // 整个控制条铺满白底
             radius: 8
             border.color: borderColor
             border.width: 1
@@ -208,7 +274,6 @@ Item {
                 spacing: 20
 
                 // === 左侧：物理源状态监听 ===
-                // 拆除了原有的嵌套 Rectangle，直接融在长条里
                 RowLayout {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
@@ -216,9 +281,8 @@ Item {
 
                     Rectangle {
                         width: 8; height: 24; radius: 4
-                        color: ins.isCalibrating ? themeColor : textSub
+                        color: themeColor
                     }
-                    // 完美保留您的 titleSize
                     Label { text: qsTr("标准源物理状态:"); font.bold: true; font.pixelSize: titleSize; color: textMain }
                     Label {
                         id: srctext
@@ -226,7 +290,7 @@ Item {
                         color: textSub
                         font.pixelSize: 18
                         font.bold: true
-                        Layout.fillWidth: true // 自动吃掉中间多余的空白，把按钮挤到右边
+                        Layout.fillWidth: true
                         elide: Text.ElideRight
                     }
                 }
@@ -235,12 +299,12 @@ Item {
                 Button {
                     id: startCalibrateBtn
                     Layout.preferredWidth: 220
-                    Layout.fillHeight: true // 自动填满 (80-20=60px)
+                    Layout.fillHeight: true
                     enabled: !ins.isCalibrating
 
                     background: Rectangle {
                         color: parent.enabled ? (parent.pressed ? Qt.darker(themeColor, 1.1) : themeColor) : "#E0E0E0"
-                        radius: 6 // 内部按钮圆角 6，配合外部的 8 视觉最协调
+                        radius: 6
                     }
                     contentItem: Text {
                         text: qsTr("▶ 启动全自动校准")
@@ -252,65 +316,9 @@ Item {
                     }
 
                     onClicked: {
-                        let meterConfigs = []
-                        let validationPassed = true
-                        let enabledCount = 0
-
-                        let seenSns = []
-                        let seenAddresses = []
-
-                        for (let i = 0; i < meterRepeater.count; i++) {
-                            let item = meterRepeater.itemAt(i)
-                            item.resetAllSteps()
-
-                            if (item.isEnabled) {
-                                enabledCount++
-
-                                if (item.meterSn === "") {
-                                    topMsg.display("仪表 " + (i + 1) + " 编号不能为空！", "error")
-                                    validationPassed = false
-                                    break
-                                }
-
-                                if (seenSns.includes(item.meterSn)) {
-                                    console.log("seenSns",seenSns)
-                                    console.log("item.meterSn",item.meterSn)
-                                    topMsg.display("仪表编号存在重复 (冲突编号: " + item.meterSn + ")", "error")
-                                    validationPassed = false
-                                    break
-                                }
-                                seenSns.push(item.meterSn)
-
-                                if (seenAddresses.includes(item.meterAddr)) {
-                                    console.log("seenAddresses",seenAddresses)
-                                    console.log("item.meterAddr",item.meterAddr)
-                                    topMsg.display("通信地址存在冲突 (冲突地址: " + item.meterAddr + ")", "error")
-                                    validationPassed = false
-                                    break
-                                }
-                                seenAddresses.push(item.meterAddr)
-
-                                meterConfigs.push({
-                                    "enabled": true,
-                                    "address": item.meterAddr,
-                                    "sn": item.meterSn
-                                })
-                            } else {
-                                meterConfigs.push({
-                                    "enabled": false,
-                                    "address": item.meterAddr,
-                                    "sn": ""
-                                })
-                            }
-                        }
-
-                        if (validationPassed) {
-                            if (enabledCount === 0) {
-                                topMsg.display("请至少勾选启用一台仪表！", "error")
-                                return
-                            }
-                            ins.startTask(mode_FullAuto,srcport.currentText, srcbaud.currentValue, meterport.currentText, meterbaud.currentValue, meterConfigs)
-                            topMsg.display("全自动校准已启动", "success")
+                        let config = validateAndGetConfig()
+                        if (config) {
+                            ins.startTask(mode_FullAuto, config.srcPort, config.srcBaud, config.meterPort, config.meterBaud, config.meters)
                         }
                     }
                 }
@@ -326,7 +334,6 @@ Item {
                         radius: 6
                     }
                     contentItem: Text {
-                        // 保留您修改的方块图标
                         text: qsTr("■ 停止校准")
                         font.bold: true
                         font.pixelSize: 20
@@ -337,7 +344,6 @@ Item {
 
                     onClicked: {
                         ins.stopCalibration()
-                        // 完美保留您的霸气提示语
                         bottomStatusPanel.setStatus("操作员强行中止了校准序列！", "error")
                     }
                 }
@@ -356,27 +362,23 @@ Item {
                 id: meterRepeater
                 model: 5
 
-                // 仪表卡片容器
                 Rectangle {
                     id: meterCard
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     color: cardBg
                     radius: 8
-                    // 极简浅灰细边
                     border.color: isEnabled ? "#DCDFE6" : borderColor
                     border.width: 1
 
-                    // 顶部色彩强调线
                     Rectangle {
                         width: parent.width; height: 6
                         anchors.top: parent.top
                         color: isEnabled ? themeColor : "#E4E7ED"
                         radius: 8
-                        Rectangle { width: parent.width; height: 3; anchors.bottom: parent.bottom; color: parent.color } // 下方拉直融入卡片
+                        Rectangle { width: parent.width; height: 3; anchors.bottom: parent.bottom; color: parent.color }
                     }
 
-                    // 未启用时整体变半透明，突出启用的表
                     opacity: isEnabled ? 1.0 : 0.5
                     Behavior on opacity { NumberAnimation { duration: 200 } }
 
@@ -395,10 +397,9 @@ Item {
 
                     ColumnLayout {
                         anchors.fill: parent
-                        anchors.topMargin: 6 // 避开顶部高亮线
+                        anchors.topMargin: 6
                         spacing: 0
 
-                        //卡片独立表头
                         RowLayout {
                             Layout.fillWidth: true
                             Layout.margins: 12
@@ -409,7 +410,7 @@ Item {
                             Item { Layout.fillWidth: true }
                             CheckBox {
                                 id: enableCheck
-                                text: qsTr("启用") // 精简文字防止挤压
+                                text: qsTr("启用")
                                 font.bold: true
                                 font.pixelSize: 14
                                 enabled: !ins.isCalibrating
@@ -417,7 +418,6 @@ Item {
                             }
                         }
 
-                        // 参数录入区
                         GridLayout {
                             Layout.fillWidth: true
                             Layout.leftMargin: 15; Layout.rightMargin: 15; Layout.bottomMargin: 10
@@ -427,10 +427,10 @@ Item {
                             Label { text: "地址:"; color: textSub; font.pixelSize: 15 }
                             SpinBox {
                                 id: addrInput
-                                value: index + 1 // 默认地址 1, 2, 3, 4, 5
+                                value: index + 1
                                 from: 1; to: 255
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: 38 // 统一高度压扁
+                                Layout.preferredHeight: 38
                                 enabled: enableCheck.checked && !ins.isCalibrating
                                 editable: true
                                 font.pixelSize: 18
@@ -438,22 +438,21 @@ Item {
                             Label { text: "SN码:"; color: textSub; font.pixelSize: 15 }
                             TextField {
                                 id: sn
+                                text: index
                                 placeholderText: "出厂SN"
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: 38 // 统一高度压扁
+                                Layout.preferredHeight: 38
                                 enabled: enableCheck.checked && !ins.isCalibrating
                                 font.pixelSize: 18
                                 horizontalAlignment: TextInput.AlignHCenter
                             }
                         }
 
-                        // 分割线
                         Rectangle {
                             Layout.fillWidth: true; Layout.leftMargin: 15; Layout.rightMargin: 15
                             height: 1; color: borderColor
                         }
 
-                        // 步骤流转看板
                         ListView {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
@@ -465,7 +464,7 @@ Item {
 
                             model: ListModel {
                                 id: stepModel
-                                ListElement { stepName: "解除芯片保护"; status: 0 } // 精简文案
+                                ListElement { stepName: "解除芯片保护"; status: 0 }
                                 ListElement { stepName: "系统校准握手"; status: 0 }
                                 ListElement { stepName: "电压电流校准 (PF=1.0)"; status: 0 }
                                 ListElement { stepName: "电压电流校准 (PF=0.5)"; status: 0 }
@@ -478,7 +477,7 @@ Item {
                                 spacing: 12
 
                                 Rectangle {
-                                    width: 20; height: 20; radius: 10 // 圆圈等比例缩小
+                                    width: 20; height: 20; radius: 10
                                     color: {
                                         if (status === 0) return "#E4E7ED"
                                         if (status === 1) return themeColor
@@ -501,7 +500,7 @@ Item {
 
                                 Label {
                                     text: stepName
-                                    font.pixelSize: 14 // 字体微缩，防止挤压折行
+                                    font.pixelSize: 14
                                     color: status === 1 ? themeColor : (status === 0 ? textSub : textMain)
                                     font.bold: status === 1 || status === 2
                                     Layout.fillWidth: true
@@ -536,7 +535,6 @@ Item {
                 }
             }
 
-            // 1. 左侧指示器和标题，绝对靠左
             Row {
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
@@ -545,7 +543,7 @@ Item {
 
                 Rectangle {
                     width: 6; height: 24; radius: 3
-                    color: ins.isCalibrating ? themeColor : textSub
+                    color: themeColor
                     anchors.verticalCenter: parent.verticalCenter
                 }
 
@@ -558,7 +556,6 @@ Item {
                 }
             }
 
-            // 2. 状态文本，无视其他控件，强行霸占整个卡片的绝对正中心！
             Label {
                 id: resultText
                 anchors.centerIn: parent
@@ -576,7 +573,7 @@ Item {
 
                 function onIsCalibratingChanged() {
                     if (ins.isCalibrating) {
-                        bottomStatusPanel.setStatus("🚀 高并发自动化流转执行中...", "info")
+                        bottomStatusPanel.setStatus("🚀 全自动校准执行中...", "info")
                     }
                 }
             }

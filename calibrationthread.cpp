@@ -1,9 +1,161 @@
 #include "calibrationthread.h"
 #include <QDebug>
 #include <QThread>
+#include <QtMath>
+#include <QElapsedTimer>
 
 CalibrationThread::CalibrationThread(QObject *parent)
-    : QThread(parent), m_isRunning(false) {}
+    : QThread(parent), m_isRunning(false) {
+
+    m_viTestPoints = {
+        {"44V,  0.5A",  44.0f, 0.5f, 1.0f, buildSourceConfigCmd(44.0f,  0.5f, 1.0f)},
+        {"220V, 5.0A", 220.0f, 5.0f, 1.0f, buildSourceConfigCmd(220.0f, 5.0f, 1.0f)},
+        {"264V, 6.0A", 264.0f, 6.0f, 1.0f, buildSourceConfigCmd(264.0f, 6.0f, 1.0f)}
+    };
+    m_activePowerTestPoints = {
+       // ======================= 第一组：176V (17个点) =======================
+       // 1. PF = 1.0 (5个点)
+       {"176V, PF=1.0, 0.05A",  176.0f, 0.05f,  1.0f, buildSourceConfigCmd(176.0f, 0.05f,  1.0f)},
+       {"176V, PF=1.0, 0.20A",  176.0f, 0.20f,  1.0f, buildSourceConfigCmd(176.0f, 0.20f,  1.0f)},
+       {"176V, PF=1.0, 0.25A",  176.0f, 0.25f,  1.0f, buildSourceConfigCmd(176.0f, 0.25f,  1.0f)},
+       {"176V, PF=1.0, 5.00A",  176.0f, 5.00f,  1.0f, buildSourceConfigCmd(176.0f, 5.00f,  1.0f)},
+       {"176V, PF=1.0, 6.00A",  176.0f, 6.00f,  1.0f, buildSourceConfigCmd(176.0f, 6.00f,  1.0f)},
+
+       // 2. PF = 0.5L (感性，正数，6个点)
+       {"176V, PF=0.5L, 0.10A", 176.0f, 0.10f,  0.5f, buildSourceConfigCmd(176.0f, 0.10f,  0.5f)},
+       {"176V, PF=0.5L, 0.25A", 176.0f, 0.25f,  0.5f, buildSourceConfigCmd(176.0f, 0.25f,  0.5f)},
+       {"176V, PF=0.5L, 0.40A", 176.0f, 0.40f,  0.5f, buildSourceConfigCmd(176.0f, 0.40f,  0.5f)},
+       {"176V, PF=0.5L, 0.50A", 176.0f, 0.50f,  0.5f, buildSourceConfigCmd(176.0f, 0.50f,  0.5f)},
+       {"176V, PF=0.5L, 5.00A", 176.0f, 5.00f,  0.5f, buildSourceConfigCmd(176.0f, 5.00f,  0.5f)},
+       {"176V, PF=0.5L, 6.00A", 176.0f, 6.00f,  0.5f, buildSourceConfigCmd(176.0f, 6.00f,  0.5f)},
+
+       // 3. PF = 0.8C (容性，负数，6个点)
+       {"176V, PF=0.8C, 0.10A", 176.0f, 0.10f, -0.8f, buildSourceConfigCmd(176.0f, 0.10f, -0.8f)},
+       {"176V, PF=0.8C, 0.25A", 176.0f, 0.25f, -0.8f, buildSourceConfigCmd(176.0f, 0.25f, -0.8f)},
+       {"176V, PF=0.8C, 0.40A", 176.0f, 0.40f, -0.8f, buildSourceConfigCmd(176.0f, 0.40f, -0.8f)},
+       {"176V, PF=0.8C, 0.50A", 176.0f, 0.50f, -0.8f, buildSourceConfigCmd(176.0f, 0.50f, -0.8f)},
+       {"176V, PF=0.8C, 5.00A", 176.0f, 5.00f, -0.8f, buildSourceConfigCmd(176.0f, 5.00f, -0.8f)},
+       {"176V, PF=0.8C, 6.00A", 176.0f, 6.00f, -0.8f, buildSourceConfigCmd(176.0f, 6.00f, -0.8f)},
+
+
+       // ======================= 第二组：220V (17个点) =======================
+       // 1. PF = 1.0 (5个点)
+       {"220V, PF=1.0, 0.05A",  220.0f, 0.05f,  1.0f, buildSourceConfigCmd(220.0f, 0.05f,  1.0f)},
+       {"220V, PF=1.0, 0.20A",  220.0f, 0.20f,  1.0f, buildSourceConfigCmd(220.0f, 0.20f,  1.0f)},
+       {"220V, PF=1.0, 0.25A",  220.0f, 0.25f,  1.0f, buildSourceConfigCmd(220.0f, 0.25f,  1.0f)},
+       {"220V, PF=1.0, 5.00A",  220.0f, 5.00f,  1.0f, buildSourceConfigCmd(220.0f, 5.00f,  1.0f)},
+       {"220V, PF=1.0, 6.00A",  220.0f, 6.00f,  1.0f, buildSourceConfigCmd(220.0f, 6.00f,  1.0f)},
+
+       // 2. PF = 0.5L (感性，正数，6个点)
+       {"220V, PF=0.5L, 0.10A", 220.0f, 0.10f,  0.5f, buildSourceConfigCmd(220.0f, 0.10f,  0.5f)},
+       {"220V, PF=0.5L, 0.25A", 220.0f, 0.25f,  0.5f, buildSourceConfigCmd(220.0f, 0.25f,  0.5f)},
+       {"220V, PF=0.5L, 0.40A", 220.0f, 0.40f,  0.5f, buildSourceConfigCmd(220.0f, 0.40f,  0.5f)},
+       {"220V, PF=0.5L, 0.50A", 220.0f, 0.50f,  0.5f, buildSourceConfigCmd(220.0f, 0.50f,  0.5f)},
+       {"220V, PF=0.5L, 5.00A", 220.0f, 5.00f,  0.5f, buildSourceConfigCmd(220.0f, 5.00f,  0.5f)},
+       {"220V, PF=0.5L, 6.00A", 220.0f, 6.00f,  0.5f, buildSourceConfigCmd(220.0f, 6.00f,  0.5f)},
+
+       // 3. PF = 0.8C (容性，负数，6个点)
+       {"220V, PF=0.8C, 0.10A", 220.0f, 0.10f, -0.8f, buildSourceConfigCmd(220.0f, 0.10f, -0.8f)},
+       {"220V, PF=0.8C, 0.25A", 220.0f, 0.25f, -0.8f, buildSourceConfigCmd(220.0f, 0.25f, -0.8f)},
+       {"220V, PF=0.8C, 0.40A", 220.0f, 0.40f, -0.8f, buildSourceConfigCmd(220.0f, 0.40f, -0.8f)},
+       {"220V, PF=0.8C, 0.50A", 220.0f, 0.50f, -0.8f, buildSourceConfigCmd(220.0f, 0.50f, -0.8f)},
+       {"220V, PF=0.8C, 5.00A", 220.0f, 5.00f, -0.8f, buildSourceConfigCmd(220.0f, 5.00f, -0.8f)},
+       {"220V, PF=0.8C, 6.00A", 220.0f, 6.00f, -0.8f, buildSourceConfigCmd(220.0f, 6.00f, -0.8f)},
+
+
+       // ======================= 第三组：264V (17个点) =======================
+       // 1. PF = 1.0 (5个点)
+       {"264V, PF=1.0, 0.05A",  264.0f, 0.05f,  1.0f, buildSourceConfigCmd(264.0f, 0.05f,  1.0f)},
+       {"264V, PF=1.0, 0.20A",  264.0f, 0.20f,  1.0f, buildSourceConfigCmd(264.0f, 0.20f,  1.0f)},
+       {"264V, PF=1.0, 0.25A",  264.0f, 0.25f,  1.0f, buildSourceConfigCmd(264.0f, 0.25f,  1.0f)},
+       {"264V, PF=1.0, 5.00A",  264.0f, 5.00f,  1.0f, buildSourceConfigCmd(264.0f, 5.00f,  1.0f)},
+       {"264V, PF=1.0, 6.00A",  264.0f, 6.00f,  1.0f, buildSourceConfigCmd(264.0f, 6.00f,  1.0f)},
+
+       // 2. PF = 0.5L (感性，正数，6个点)
+       {"264V, PF=0.5L, 0.10A", 264.0f, 0.10f,  0.5f, buildSourceConfigCmd(264.0f, 0.10f,  0.5f)},
+       {"264V, PF=0.5L, 0.25A", 264.0f, 0.25f,  0.5f, buildSourceConfigCmd(264.0f, 0.25f,  0.5f)},
+       {"264V, PF=0.5L, 0.40A", 264.0f, 0.40f,  0.5f, buildSourceConfigCmd(264.0f, 0.40f,  0.5f)},
+       {"264V, PF=0.5L, 0.50A", 264.0f, 0.50f,  0.5f, buildSourceConfigCmd(264.0f, 0.50f,  0.5f)},
+       {"264V, PF=0.5L, 5.00A", 264.0f, 5.00f,  0.5f, buildSourceConfigCmd(264.0f, 5.00f,  0.5f)},
+       {"264V, PF=0.5L, 6.00A", 264.0f, 6.00f,  0.5f, buildSourceConfigCmd(264.0f, 6.00f,  0.5f)},
+
+       // 3. PF = 0.8C (容性，🌟负数，6个点)
+       {"264V, PF=0.8C, 0.10A", 264.0f, 0.10f, -0.8f, buildSourceConfigCmd(264.0f, 0.10f, -0.8f)},
+       {"264V, PF=0.8C, 0.25A", 264.0f, 0.25f, -0.8f, buildSourceConfigCmd(264.0f, 0.25f, -0.8f)},
+       {"264V, PF=0.8C, 0.40A", 264.0f, 0.40f, -0.8f, buildSourceConfigCmd(264.0f, 0.40f, -0.8f)},
+       {"264V, PF=0.8C, 0.50A", 264.0f, 0.50f, -0.8f, buildSourceConfigCmd(264.0f, 0.50f, -0.8f)},
+       {"264V, PF=0.8C, 5.00A", 264.0f, 5.00f, -0.8f, buildSourceConfigCmd(264.0f, 5.00f, -0.8f)},
+       {"264V, PF=0.8C, 6.00A", 264.0f, 6.00f, -0.8f, buildSourceConfigCmd(264.0f, 6.00f, -0.8f)},
+    };
+    m_reactivePowerTestPoints = {
+        // ======================= 第一组：176V (13个点) =======================
+        {"176V, PF=0, 0.1A",      176.0f, 0.10f, 0.0f,   buildSourceConfigCmd(176.0f, 0.10f, 0.0f)},
+        {"176V, PF=0, 0.2A",      176.0f, 0.20f, 0.0f,   buildSourceConfigCmd(176.0f, 0.20f, 0.0f)},
+        {"176V, PF=0, 0.25A",     176.0f, 0.25f, 0.0f,   buildSourceConfigCmd(176.0f, 0.25f, 0.0f)},
+        {"176V, PF=0, 5.0A",      176.0f, 5.00f, 0.0f,   buildSourceConfigCmd(176.0f, 5.00f, 0.0f)},
+        {"176V, PF=0, 6.0A",      176.0f, 6.00f, 0.0f,   buildSourceConfigCmd(176.0f, 6.00f, 0.0f)},
+        {"176V, PF=0.866, 0.25A", 176.0f, 0.25f, 0.866f, buildSourceConfigCmd(176.0f, 0.25f, 0.866f)},
+        {"176V, PF=0.866, 0.4A",  176.0f, 0.40f, 0.866f, buildSourceConfigCmd(176.0f, 0.40f, 0.866f)},
+        {"176V, PF=0.866, 0.5A",  176.0f, 0.50f, 0.866f, buildSourceConfigCmd(176.0f, 0.50f, 0.866f)},
+        {"176V, PF=0.866, 5.0A",  176.0f, 5.00f, 0.866f, buildSourceConfigCmd(176.0f, 5.00f, 0.866f)},
+        {"176V, PF=0.866, 6.0A",  176.0f, 6.00f, 0.866f, buildSourceConfigCmd(176.0f, 6.00f, 0.866f)},
+        {"176V, PF=0.968, 0.5A",  176.0f, 0.50f, 0.968f, buildSourceConfigCmd(176.0f, 0.50f, 0.968f)},
+        {"176V, PF=0.968, 5.0A",  176.0f, 5.00f, 0.968f, buildSourceConfigCmd(176.0f, 5.00f, 0.968f)},
+        {"176V, PF=0.968, 6.0A",  176.0f, 6.00f, 0.968f, buildSourceConfigCmd(176.0f, 6.00f, 0.968f)},
+
+        // ======================= 第二组：220V (13个点) =======================
+        {"220V, PF=0, 0.1A",      220.0f, 0.10f, 0.0f,   buildSourceConfigCmd(220.0f, 0.10f, 0.0f)},
+        {"220V, PF=0, 0.2A",      220.0f, 0.20f, 0.0f,   buildSourceConfigCmd(220.0f, 0.20f, 0.0f)},
+        {"220V, PF=0, 0.25A",     220.0f, 0.25f, 0.0f,   buildSourceConfigCmd(220.0f, 0.25f, 0.0f)},
+        {"220V, PF=0, 5.0A",      220.0f, 5.00f, 0.0f,   buildSourceConfigCmd(220.0f, 5.00f, 0.0f)},
+        {"220V, PF=0, 6.0A",      220.0f, 6.00f, 0.0f,   buildSourceConfigCmd(220.0f, 6.00f, 0.0f)},
+        {"220V, PF=0.866, 0.25A", 220.0f, 0.25f, 0.866f, buildSourceConfigCmd(220.0f, 0.25f, 0.866f)},
+        {"220V, PF=0.866, 0.4A",  220.0f, 0.40f, 0.866f, buildSourceConfigCmd(220.0f, 0.40f, 0.866f)},
+        {"220V, PF=0.866, 0.5A",  220.0f, 0.50f, 0.866f, buildSourceConfigCmd(220.0f, 0.50f, 0.866f)},
+        {"220V, PF=0.866, 5.0A",  220.0f, 5.00f, 0.866f, buildSourceConfigCmd(220.0f, 5.00f, 0.866f)},
+        {"220V, PF=0.866, 6.0A",  220.0f, 6.00f, 0.866f, buildSourceConfigCmd(220.0f, 6.00f, 0.866f)},
+        {"220V, PF=0.968, 0.5A",  220.0f, 0.50f, 0.968f, buildSourceConfigCmd(220.0f, 0.50f, 0.968f)},
+        {"220V, PF=0.968, 5.0A",  220.0f, 5.00f, 0.968f, buildSourceConfigCmd(220.0f, 5.00f, 0.968f)},
+        {"220V, PF=0.968, 6.0A",  220.0f, 6.00f, 0.968f, buildSourceConfigCmd(220.0f, 6.00f, 0.968f)},
+
+        // ======================= 第三组：264V (13个点) =======================
+        {"264V, PF=0, 0.1A",      264.0f, 0.10f, 0.0f,   buildSourceConfigCmd(264.0f, 0.10f, 0.0f)},
+        {"264V, PF=0, 0.2A",      264.0f, 0.20f, 0.0f,   buildSourceConfigCmd(264.0f, 0.20f, 0.0f)},
+        {"264V, PF=0, 0.25A",     264.0f, 0.25f, 0.0f,   buildSourceConfigCmd(264.0f, 0.25f, 0.0f)},
+        {"264V, PF=0, 5.0A",      264.0f, 5.00f, 0.0f,   buildSourceConfigCmd(264.0f, 5.00f, 0.0f)},
+        {"264V, PF=0, 6.0A",      264.0f, 6.00f, 0.0f,   buildSourceConfigCmd(264.0f, 6.00f, 0.0f)},
+        {"264V, PF=0.866, 0.25A", 264.0f, 0.25f, 0.866f, buildSourceConfigCmd(264.0f, 0.25f, 0.866f)},
+        {"264V, PF=0.866, 0.4A",  264.0f, 0.40f, 0.866f, buildSourceConfigCmd(264.0f, 0.40f, 0.866f)},
+        {"264V, PF=0.866, 0.5A",  264.0f, 0.50f, 0.866f, buildSourceConfigCmd(264.0f, 0.50f, 0.866f)},
+        {"264V, PF=0.866, 5.0A",  264.0f, 5.00f, 0.866f, buildSourceConfigCmd(264.0f, 5.00f, 0.866f)},
+        {"264V, PF=0.866, 6.0A",  264.0f, 6.00f, 0.866f, buildSourceConfigCmd(264.0f, 6.00f, 0.866f)},
+        {"264V, PF=0.968, 0.5A",  264.0f, 0.50f, 0.968f, buildSourceConfigCmd(264.0f, 0.50f, 0.968f)},
+        {"264V, PF=0.968, 5.0A",  264.0f, 5.00f, 0.968f, buildSourceConfigCmd(264.0f, 5.00f, 0.968f)},
+        {"264V, PF=0.968, 6.0A",  264.0f, 6.00f, 0.968f, buildSourceConfigCmd(264.0f, 6.00f, 0.968f)},
+    };
+    m_apparentPowerTestPoints = {
+        // --- 176V 组 ---
+        {"176V, PF=1, 0.1A", 176.0f, 0.1f, 1.0f, buildSourceConfigCmd(176.0f, 0.1f, 1.0f)},
+        {"176V, PF=1, 0.2A", 176.0f, 0.2f, 1.0f, buildSourceConfigCmd(176.0f, 0.2f, 1.0f)},
+        {"176V, PF=1, 0.3A", 176.0f, 0.3f, 1.0f, buildSourceConfigCmd(176.0f, 0.3f, 1.0f)},
+        {"176V, PF=1, 5.0A", 176.0f, 5.0f, 1.0f, buildSourceConfigCmd(176.0f, 5.0f, 1.0f)},
+        {"176V, PF=1, 6.0A", 176.0f, 6.0f, 1.0f, buildSourceConfigCmd(176.0f, 6.0f, 1.0f)},
+
+        // --- 220V 组 ---
+        {"220V, PF=1, 0.1A", 220.0f, 0.1f, 1.0f, buildSourceConfigCmd(220.0f, 0.1f, 1.0f)},
+        {"220V, PF=1, 0.2A", 220.0f, 0.2f, 1.0f, buildSourceConfigCmd(220.0f, 0.2f, 1.0f)},
+        {"220V, PF=1, 0.3A", 220.0f, 0.3f, 1.0f, buildSourceConfigCmd(220.0f, 0.3f, 1.0f)},
+        {"220V, PF=1, 5.0A", 220.0f, 5.0f, 1.0f, buildSourceConfigCmd(220.0f, 5.0f, 1.0f)},
+        {"220V, PF=1, 6.0A", 220.0f, 6.0f, 1.0f, buildSourceConfigCmd(220.0f, 6.0f, 1.0f)},
+
+        // --- 264V 组 ---
+        {"264V, PF=1, 0.1A", 264.0f, 0.1f, 1.0f, buildSourceConfigCmd(264.0f, 0.1f, 1.0f)},
+        {"264V, PF=1, 0.2A", 264.0f, 0.2f, 1.0f, buildSourceConfigCmd(264.0f, 0.2f, 1.0f)},
+        {"264V, PF=1, 0.3A", 264.0f, 0.3f, 1.0f, buildSourceConfigCmd(264.0f, 0.3f, 1.0f)},
+        {"264V, PF=1, 5.0A", 264.0f, 5.0f, 1.0f, buildSourceConfigCmd(264.0f, 5.0f, 1.0f)},
+        {"264V, PF=1, 6.0A", 264.0f, 6.0f, 1.0f, buildSourceConfigCmd(264.0f, 6.0f, 1.0f)},
+    };
+}
 
 CalibrationThread::~CalibrationThread()
 {
@@ -16,20 +168,24 @@ CalibrationThread::~CalibrationThread()
 
 void CalibrationThread::setConfig(int mode, const QString &srcPort, int srcBaud, const QString &meterPort, int meterBaud, const QVariantList &meterConfigs)
 {
-    m_workMode = static_cast<WorkMode>(mode);
-    m_srcPortName = srcPort; m_srcBaud = srcBaud;
-    m_meterPortName = meterPort; m_meterBaud = meterBaud;
+    m_workMode = (WorkMode)mode;
+    m_srcPortName = srcPort;
+    m_srcBaud = srcBaud;
+    m_meterPortName = meterPort;
+    m_meterBaud = meterBaud;
 
     // 解析前端传来的 5 台表配置
-    m_meterTasks.clear();
+    m_meters.clear();
     for (int i = 0; i < meterConfigs.size(); ++i) {
         QVariantMap map = meterConfigs.at(i).toMap();
-        bool isEnabled = map.value("enabled").toBool();
-        quint8 address = (quint8)map.value("address").toUInt();
-
-        // 同时初始化 isEnabled 和 isAlive。
-        // isAlive 的初始状态直接继承 isEnabled。
-        m_meterTasks.append({i, address, isEnabled, isEnabled});
+        Meter m;
+        m.uiIndex = i;
+        m.address = (quint8)map.value("address").toUInt();
+        m.sn = map.value("sn").toString(); // 🌟 直接在这里把 SN 也装进来
+        m.isEnabled = map.value("enabled").toBool();
+        m.isAlive = m.isEnabled; // 初始存活状态继承自是否启用
+        m.hasFail = false;
+        m_meters.append(m);
     }
 }
 
@@ -70,25 +226,18 @@ void CalibrationThread::run()
         return;
     }
 
-    // 提取动态名单
-    QList<MeterTask> meters = m_meterTasks;
+    // 为当前这趟测试创建“局部快照副本”，实现线程安全隔离！
+    QList<Meter> meters = m_meters;
     int aliveCount = 0;
-    for (auto &m : meters) {
-        if (m.isEnabled) aliveCount++;
-    }
 
-    // ================= 分流点 1：执行全自动校准 =================
     if (m_workMode == Mode_FullAuto) {
         if (!runCalibrationFlow(srcPort, meterPort, meters, aliveCount)) {
-            goto ABORT_PROCESS; // 如果子流程崩溃，立刻中断！
+            goto ABORT_PROCESS;
         }
     }
 
-    // ================= 分流点 2：执行误差计算 =================
-    if (m_isRunning && aliveCount > 0 && (m_workMode == Mode_FullAuto || m_workMode == Mode_ErrorCalc)) {
-        if (!runErrorCalcFlow(srcPort, meterPort, meters, aliveCount)) {
-            goto ABORT_PROCESS; // 如果误差流程崩溃，立刻中断！
-        }
+    if (!runErrorCalcFlow(srcPort, meterPort, meters, aliveCount)) {
+        goto ABORT_PROCESS;
     }
 
     // 全部通关或彻底结束！
@@ -115,7 +264,7 @@ SUCCESS_EXIT:
 // -------------------------------------------------------------------------
 // 抽离出的纯校准流水线 (注意将原来的 goto ABORT_PROCESS 全部换成了 return)
 // -------------------------------------------------------------------------
-bool CalibrationThread::runCalibrationFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<MeterTask> &meters, int &aliveCount)
+bool CalibrationThread::runCalibrationFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<Meter> &meters, int &aliveCount)
 {
     // =========================================================
     // 阶段一：标准源输出 220V 5A 1.0PF
@@ -126,6 +275,8 @@ bool CalibrationThread::runCalibrationFlow(QSerialPort &srcPort, QSerialPort &me
     qDebug("2. 启动标准源输出...");
     emit srcMessage("220V/5A/PF=1.0 等待源稳定...", "info");
     if (!sendSourceCmd(srcPort, m_startCmd, 6000)) return false;
+
+    QThread::msleep(3000);
 
     qInfo() << "正在全通道监测物理输出，验证三相配置...";
     if (!waitSourceStable(srcPort, 1.0f, 1000)) return false;
@@ -221,6 +372,8 @@ bool CalibrationThread::runCalibrationFlow(QSerialPort &srcPort, QSerialPort &me
     emit srcMessage("220V/5A/PF=0.5 等待源稳定...", "info");
     if (!sendSourceCmd(srcPort, m_startCmd, 6000)) return false;
 
+    QThread::msleep(3000);
+
     qInfo() << "正在全通道监测物理输出，验证三相全量配置(0.5PF)...";
     if (!waitSourceStable(srcPort, 0.5f, 1000)) return false;
 
@@ -295,72 +448,283 @@ bool CalibrationThread::runCalibrationFlow(QSerialPort &srcPort, QSerialPort &me
     return true;
 }
 
-// -------------------------------------------------------------------------
-// 独立的误差计算流水线 (在这里写死循环打各种电压电流点)
-// -------------------------------------------------------------------------
-bool CalibrationThread::runErrorCalcFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<MeterTask> &meters, int &aliveCount)
+// =========================================================================
+// 主入口：误差计算大循环
+// =========================================================================
+bool CalibrationThread::runErrorCalcFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<Meter> &meters, int &aliveCount)
 {
-    qInfo() << "====== 正在启动单表电压读取探针 ======";
+    qInfo() << "====== 正在启动 误差测试系统 ======";
 
-    quint8 targetAddr = 0;
-    for (const auto &meter : meters) {
-        if (meter.isAlive) {
-            targetAddr = meter.address;
-            break;
-        }
+    for (auto &meter : meters) {
+        if (!meter.isEnabled) continue;
+
+        emit updateErrorMeterStatus(meter.uiIndex, Error_Running, "正在测试...");
     }
-    if (targetAddr == 0) {
-        qWarning() << "没有存活的仪表可以读取！";
+
+    // 1. 执行电压电流测试 (地址 0x1018, 9个参数)
+    if (!runTestCategory(srcPort, meterPort, Cat_V, 0x1018, 9, m_viTestPoints, meters, aliveCount)) {
         return false;
     }
 
-    qInfo() << ">>> [探针] 锁定仪表地址:" << targetAddr << "，开始连续读取 0x1018 长度 2 ...";
-
-    // 纯手工组装 Modbus 03 连续读取指令
-    QByteArray frame;
-    frame.append(targetAddr).append(0x03);
-    frame.append(0x10).append(0x18);       // 起始地址: 0x1018
-    frame.append((char)0x00).append(0x02); // 读取长度: 2 个寄存器 (4 个字节)
-    quint16 crc = calculateCRC(frame);
-    frame.append(crc & 0xFF).append(crc >> 8);
-
-    qInfo().noquote() << QString("[Tx 仪表%1]").arg(targetAddr) << frame.toHex(' ').toUpper();
-    meterPort.write(frame);
-
-    // 3. 接收并解析
-    if (checkMeterResponse(meterPort, targetAddr)) {
-        QByteArray rx = meterPort.readAll();
-        qInfo().noquote() << QString("[Rx 仪表%1]").arg(targetAddr) << rx.toHex(' ').toUpper();
-
-        // 校验：地址(1) + 功能码(1) + 字节数(1) + 数据(4) + CRC(2) = 9 字节
-        // rx[2] 必须是 0x04 (因为 2 个寄存器 = 4 字节)
-        if (rx.size() >= 9 && rx[0] == targetAddr && rx[1] == 0x03 && rx[2] == 0x04) {
-
-            // 完美还原您的 C 代码：将 4 个字节按大端序 (Big-Endian) 重新拼回 uint32_t
-            quint32 rawVal = ((quint8)rx[3] << 24) |
-                             ((quint8)rx[4] << 16) |
-                             ((quint8)rx[5] << 8)  |
-                             ((quint8)rx[6]);
-
-            // 原始值除以 10 还原成浮点数
-            float meterUa = rawVal / 10.0f;
-
-            qInfo().noquote() << QString("🟩 [仪表 %1] 读取成功! 原始拼接值: %2 -> 真实物理电压: %3 V")
-                                     .arg(targetAddr)
-                                     .arg(rawVal)
-                                     .arg(meterUa, 0, 'f', 2);
-        } else {
-            qWarning() << "🟥 返回报文格式不匹配或长度不足！";
-        }
-    } else {
-        qWarning() << "🟥 读取超时！仪表没有响应。";
-    }
+    // 2. 执行有功功率测试
+    // QList<TestPoint> powerTestPoints = { ... };
+    // if (!runTestCategory(Cat_ActivePower, 0x102C, 4, powerTestPoints, meters)) {
+    //     return false;
+    // }
 
     if (!m_isRunning) return false;
 
-    qInfo() << "====== 探针测试结束 ======";
-    emit showTopMessage("单表电压读取测试完毕", "success");
+    // 4. 结算状态
+    int pass = 0, fail = 0;
+    for (auto &meter : meters) {
+        if (meter.isEnabled && meter.isAlive) {
+            if (meter.hasFail) {
+                fail++;
+                emit updateErrorMeterStatus(meter.uiIndex, Error_Fail, "有超标项");
+            } else {
+                pass++;
+                emit updateErrorMeterStatus(meter.uiIndex, Error_Pass, "全部合格");
+            }
+        }
+    }
+
+    qDebug("误差测试完毕: %d 台合格, %d 台超标, %d 台未启用或超时",pass,fail,5-pass-fail);
+
     return true;
+}
+
+// =========================================================================
+// 独立工具函数：计算误差，打印日志，并打包成 QML 能用的格式
+// =========================================================================
+QVariantMap CalibrationThread::calcErrAndMakeMap(uint8_t addr, const QString &phaseName, float std, float meas, Cell &outCell)
+{
+    outCell.err = (std > 0.001f) ? ((meas - std) / std * 100.0f) : 0.0f;
+    outCell.isFail = (qAbs(outCell.err) > 0.5f); // 暂时写死 0.5% 限值，后续你可以改成传参
+
+    qInfo().noquote() << QString("  -> [Addr:%1] [%2] 理论: %3 | 实测: %4 | 误差: %5% | %6")
+                             .arg(addr, 3)
+                             .arg(phaseName, -4)
+                             .arg(std, 7, 'f', 3)
+                             .arg(meas, 7, 'f', 3)
+                             .arg(outCell.err, 7, 'f', 3)
+                             .arg(outCell.isFail ? "❌FAIL" : "✅PASS");
+
+    QVariantMap qmlMap;
+    qmlMap["errStr"] = QString("%1%2%").arg(outCell.err > 0 ? "+" : "").arg(outCell.err, 0, 'f', 3);
+    qmlMap["isFail"] = outCell.isFail;
+    return qmlMap;
+}
+
+// =========================================================================
+// 专项处理函数：电压/电流数据组装与推送
+// =========================================================================
+void CalibrationThread::processVoltageCurrentData(Meter &meter, const QString &conditionName, float tgtV, float tgtI, const QVector<float> &viData)
+{
+    qInfo().noquote() << QString("\n=== 仪表地址[%1] 工况[%2] 数据明细 ===").arg(meter.address).arg(conditionName);
+
+    // --------- 处理电压 (Category 0) ---------
+    Row volRow;
+    volRow.conditionName = conditionName;
+    volRow.cells.resize(6); // Ua, Ub, Uc, Uab, Ubc, Uca
+    QVariantList volQmlCells;
+
+    // 相电压
+    volQmlCells << calcErrAndMakeMap(meter.address, "Ua", tgtV, viData[0], volRow.cells[0]);
+    volQmlCells << calcErrAndMakeMap(meter.address, "Ub", tgtV, viData[1], volRow.cells[1]);
+    volQmlCells << calcErrAndMakeMap(meter.address, "Uc", tgtV, viData[2], volRow.cells[2]);
+    // 线电压
+    float tgtLineV = tgtV * 1.73205f;
+    volQmlCells << calcErrAndMakeMap(meter.address, "Uab", tgtLineV, viData[6], volRow.cells[3]);
+    volQmlCells << calcErrAndMakeMap(meter.address, "Ubc", tgtLineV, viData[7], volRow.cells[4]);
+    volQmlCells << calcErrAndMakeMap(meter.address, "Uca", tgtLineV, viData[8], volRow.cells[5]);
+
+    for (const auto& c : volRow.cells) if (c.isFail) meter.hasFail = true;
+    meter.categories[0].rows.append(volRow);
+    emit appendErrorRow(meter.uiIndex, Cat_V, conditionName, volQmlCells);
+
+    // --------- 处理电流 (Category 1) ---------
+    Row curRow;
+    curRow.conditionName = conditionName;
+    curRow.cells.resize(3); // Ia, Ib, Ic
+    QVariantList curQmlCells;
+
+    curQmlCells << calcErrAndMakeMap(meter.address, "Ia", tgtI, viData[3], curRow.cells[0]);
+    curQmlCells << calcErrAndMakeMap(meter.address, "Ib", tgtI, viData[4], curRow.cells[1]);
+    curQmlCells << calcErrAndMakeMap(meter.address, "Ic", tgtI, viData[5], curRow.cells[2]);
+
+    for (const auto& c : curRow.cells) if (c.isFail) meter.hasFail = true;
+    meter.categories[1].rows.append(curRow);
+    emit appendErrorRow(meter.uiIndex, Cat_I, conditionName, curQmlCells);
+}
+
+bool CalibrationThread::runTestCategory(QSerialPort &srcPort, QSerialPort &meterPort, CategoryType catType, uint16_t startAddr, int regCount, const QList<TestPoint> &testPoints, QList<Meter> &meters,int &aliveCount)
+{
+    for (int step = 0; step < testPoints.size(); ++step) {
+        TestPoint pt = testPoints[step];
+
+        if (!sendSourceCmd(srcPort, pt.srcCmd)) return false;
+        if (!sendSourceCmd(srcPort, m_startCmd, 6000)) return false;
+
+        // 稳定等待
+        qDebug("正在等待标准源和仪表内部采样稳定...");
+        for (int i = 0; i < 30; ++i) {
+            if (!m_isRunning) return false;
+            QThread::msleep(100);
+        }
+
+        // 读仪表 & 分发数据
+        aliveCount = 0;
+        for (auto &meter : meters) {
+            if (!meter.isEnabled || !meter.isAlive) continue;
+            if(catType == Cat_V)
+                emit updateErrorMeterStatus(meter.uiIndex, Error_Running, "正在测试电压电流...");
+            bool isSigned = (catType == Cat_ActivePower);
+
+            QVector<float> rawData;
+
+            // 读取仪表
+            if (readMeterData(meterPort, meter.address, startAddr, regCount, rawData, 10.0f, isSigned)) {
+                aliveCount++;
+                // 根据类型分发处理
+                if (catType == Cat_V) {
+                    processVoltageCurrentData(meter, pt.name, pt.tgtV, pt.tgtI, rawData);
+                } else if (catType == Cat_ActivePower) {
+                    // processActivePowerData(meter, pt.name, ..., rawData);
+                }
+
+            } else {
+                meter.isAlive = false;
+                emit updateErrorMeterStatus(meter.uiIndex, Error_Timeout, "通讯失败");
+            }
+        }
+        if (aliveCount == 0) {
+            emit showTopMessage("仪表全部失败，测试终止", "error");
+            return false;
+        }
+    }
+    return true;
+}
+
+bool CalibrationThread::readMeterData(QSerialPort &port, quint8 addr, quint16 startReg, int count32, QVector<float> &outValues, float divider, bool isSigned)
+{
+    int regCount = count32 * 2; // 每个 32位数据占 2 个 Modbus 寄存器
+    QByteArray frame;
+    frame.append(addr).append(0x03);
+    frame.append(startReg >> 8).append(startReg & 0xFF);
+    frame.append(regCount >> 8).append(regCount & 0xFF);
+    quint16 crc = calculateCRC(frame);
+    frame.append(crc & 0xFF).append(crc >> 8);
+
+    port.write(frame);
+    if (!checkMeterResponse(port, addr)) return false;
+
+    QByteArray rx = port.readAll();
+    int byteCount = regCount * 2; // 数据字节数
+
+    // 校验报文是否完整
+    if (rx.size() >= byteCount + 5 && rx[0] == addr && rx[1] == 0x03 && rx[2] == byteCount) {
+        outValues.clear();
+        for (int i = 0; i < count32; ++i) {
+            int base = 3 + i * 4;
+            quint32 rawVal = ((quint8)rx[base]<<24) | ((quint8)rx[base+1]<<16) |
+                             ((quint8)rx[base+2]<<8) | (quint8)rx[base+3];
+
+            // 自动处理有符号/无符号和倍率
+            if (isSigned) outValues.append((int32_t)rawVal / divider);
+            else outValues.append(rawVal / divider);
+        }
+        return true;
+    }
+    return false;
+}
+
+// =========================================================================
+// 终极动态指令生成器：自动解析浮点、计算相位、拼接校验和！
+// =========================================================================
+QByteArray CalibrationThread::buildSourceConfigCmd(float v, float i, float pf)
+{
+    QByteArray payload;
+    payload.append((char)0x00); // 接收地址
+    payload.append((char)0x92); // 高精度写命令
+
+    // 辅助 Lambda：将浮点数转为小端序的 4 字节并添加数据标识
+    auto addFloat = [&](quint8 id, float val) {
+        payload.append(id);
+        quint32 raw;
+        memcpy(&raw, &val, 4); // 浮点数拷贝进内存
+        payload.append(raw & 0xFF);
+        payload.append((raw >> 8) & 0xFF);
+        payload.append((raw >> 16) & 0xFF);
+        payload.append((raw >> 24) & 0xFF);
+    };
+
+    // 辅助 Lambda：写入 DWORD 常量（比如档位标识 55 00 00 00）
+    auto addDword = [&](quint8 id, quint32 val) {
+        payload.append(id);
+        payload.append(val & 0xFF);
+        payload.append((val >> 8) & 0xFF);
+        payload.append((val >> 16) & 0xFF);
+        payload.append((val >> 24) & 0xFF);
+    };
+
+    // 1. 先取绝对值，算出纯粹的夹角 (例如 0.5 和 -0.5 算出来都是 60度)
+    float absPf = qAbs(pf);
+    // 防御性编程：防止传入的 pf 大于1导致 qAcos 报错返回 NaN
+    if (absPf > 1.0f) absPf = 1.0f;
+
+    float pfAngle = qRadiansToDegrees(qAcos(absPf));
+
+    // 2. 根据正负号决定是 L(感性) 还是 C(容性)
+    if (pf < 0) {
+        // 如果传入负数，我们认为是 容性(C)
+        // 将夹角变负，这样下面相减时就会变成“负负得正”，实现电流超前
+        pfAngle = -pfAngle;
+    }
+
+    // A相电压固定0度，B相240度，C相120度
+    // 如果是感性(pf>0)，减去一个正数，电流滞后 (例: 0 - 60 = -60)
+    // 如果是容性(pf<0)，减去一个负数，电流超前 (例: 0 - (-60) = +60)
+    float ipA = 0.0f - pfAngle;
+    float ipB = 240.0f - pfAngle;
+    float ipC = 120.0f - pfAngle;
+
+    // 规整角度到 0~360 范围内
+    auto norm = [](float a) {
+        while(a < 0.0f) a += 360.0f;
+        while(a >= 360.0f) a -= 360.0f;
+        return a;
+    };
+
+    // 拼装电压模块
+    addFloat(0x01, v); addFloat(0x02, 0.0f);   addDword(0x26, 0x55);
+    addFloat(0x03, v); addFloat(0x04, 240.0f); addDword(0x27, 0x55);
+    addFloat(0x05, v); addFloat(0x06, 120.0f); addDword(0x28, 0x55);
+
+    // 拼装电流模块 (自动应用算好的相位)
+    addFloat(0x07, i); addFloat(0x08, norm(ipA)); addDword(0x29, 0x55);
+    addFloat(0x09, i); addFloat(0x0A, norm(ipB)); addDword(0x2A, 0x55);
+    addFloat(0x0B, i); addFloat(0x0C, norm(ipC)); addDword(0x2B, 0x55);
+
+    // 拼装频率模块
+    addFloat(0x0E, 50.0f); addFloat(0x0F, 50.0f);
+
+    // 计算协议规定的 CheckSum (地址域一直到最后数据域的8位累加和)
+    quint8 cs = 0;
+    for (char b : payload) {
+        cs += (quint8)b;
+    }
+
+    // 组装带帧头帧尾的完整指令 (108字节)
+    QByteArray frame;
+    frame.append(0x68);
+    frame.append(0x6C);       // LenL = 108
+    frame.append((char)0x00); // LenH = 0
+    frame.append(0x68);
+    frame.append(payload);
+    frame.append(cs);         // 填入刚刚算好的校验和
+    frame.append(0x16);
+
+    return frame;
 }
 
 void CalibrationThread::onSourcePortError(QSerialPort::SerialPortError error)

@@ -27,12 +27,62 @@ public:
         Mode_FullAuto = 0,
         Mode_ErrorCalc = 1
     };
-    struct MeterTask {
-        int uiIndex;      // QML 界面上的索引 (0~4)
-        quint8 address;   // 物理 Modbus 地址 (1~5)
-        bool isEnabled;   // 🌟 新增：用户是否勾选了启用
-        bool isAlive;     // 淘汰标志位：true表示存活继续，false表示这台表已挂
+    enum ErrorCardStatus {
+        Error_Idle    = 0, // 灰色：未启用
+        Error_Pass    = 1, // 绿色：全部合格
+        Error_Fail    = 2, // 红色：存在不合格项
+        Error_Running = 3, // 蓝色：正在测试中
+        Error_Timeout = 4  // 黄色：通讯超时
     };
+    enum CategoryType {
+        Cat_V = 0,
+        Cat_I = 1,
+        Cat_ActivePower = 2,
+        Cat_Harmonic = 3,
+    };
+    // 🌟 新增：把测试工况点定义提升到头文件，作为全局可用的结构
+    struct TestPoint {
+        QString name;
+        float tgtV;
+        float tgtI;
+        float tgtPF;
+        QByteArray srcCmd;
+    };
+    // 🌟 1. 最小数据单元：单元格 (保留所有数据供Excel用，但界面只用误差)
+    struct Cell {
+        float stdVal;   // 理论基准值
+        float meterVal; // 仪表实测值
+        float err;      // 误差 %
+        bool isFail;    // 是否超标
+    };
+
+    // 🌟 2. 表格的一行 (例如："220V, 5A, PF=1.0" 这一行的各种误差)
+    struct Row {
+        QString conditionName;   // 左侧固定的工况名称
+        QVector<Cell> cells; // 右侧动态的数据列集合
+    };
+
+    // 🌟 3. 某一类别的完整表格 (例如：整个"电压"表，包含多行)
+    struct Category {
+        int categoryIndex;      // 类别标识 (0=电压, 1=电流, 2=有功功率...)
+        QVector<Row> rows;  // 表格里的所有行
+    };
+
+    // 🌟 4. 【终极合体】单台仪表的全部生命周期与数据记录
+    struct Meter {
+        // --- A. 基础配置与通信状态 ---
+        int uiIndex;      // QML 界面上的索引 (0~4)
+        quint8 address;   // 物理 Modbus 地址 (1~255)
+        QString sn;       // 出厂编号
+        bool isEnabled;   // 用户是否勾选了启用
+        bool isAlive;     // 淘汰标志位：true表示存活，false表示通信失败已淘汰
+
+        // --- B. 测试结果与报表数据 ---
+        bool hasFail;                   // 只要这张表有任何一项超标，整表亮红灯
+        QMap<int, Category> categories; // 核心：按类别(0,1,2...)分类存放的表格集合
+    };
+
+
     explicit CalibrationThread(QObject *parent = nullptr);
     ~CalibrationThread() override;
 
@@ -47,6 +97,12 @@ signals:
     void meterStepStatusChanged(int meterIndex, int stepIndex, int status);
     void calirResult(const QString &msg, const QString &type);
     //void meterMessage(const QString &msg, const QString &type,const int sn);
+    // 🌟 专门用于误差计算页面的卡片状态更新
+    // status: 0=IDLE(灰), 1=PASS(绿), 2=FAIL(红), 3=RUNNING(蓝)
+    void updateErrorMeterStatus(int meterIndex, int status, const QString &msg);
+
+    // 专门用于表格行追加
+    void appendErrorRow(int meterIndex, int categoryIndex, const QString &rowName, const QVariantList &rowCells);
 
 protected:
     void run() override;
@@ -57,10 +113,23 @@ private slots:
     void onMeterPortError(QSerialPort::SerialPortError error);
 
 private:
+    // 🌟 1. 通用误差计算与 QML 数据打包工具
+    QVariantMap calcErrAndMakeMap(uint8_t addr, const QString &phaseName, float std, float meas, Cell &outCell);
+
+    // 🌟 2. 专门处理电压和电流数据的函数
+    void processVoltageCurrentData(Meter &meter, const QString &conditionName, float tgtV, float tgtI, const QVector<float> &viData);
+
+    // 🌟 3. 万能执行引擎（负责切源、等待、读取，读完后回调处理函数）
+    // 为了不使用复杂的 std::function 或 Lambda，我们用一个“类别枚举”来让引擎自己判断调哪个处理函数
+
+    bool runTestCategory(QSerialPort &srcPort, QSerialPort &meterPort, CategoryType catType, uint16_t startAddr, int regCount, const QList<TestPoint> &testPoints, QList<Meter> &meters,int &aliveCount);    // 🌟 万能 32 位连续读取函数：只要传入起始地址和参数个数，通吃电压、电流、功率、谐波！
+    bool readMeterData(QSerialPort &port, quint8 addr, quint16 startReg, int count32, QVector<float> &outValues, float divider = 10.0f, bool isSigned = false);
+    // 动态组装函数：传入目标电压、电流、功率因数(如 1.0, 0.5)
+    QByteArray buildSourceConfigCmd(float v, float i, float pf);
     // 将 run 逻辑抽离成独立的子流水线
-    bool runCalibrationFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<MeterTask> &meters, int &aliveCount);
+    bool runCalibrationFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<Meter> &meters, int &aliveCount);
     // 专门用于测误差的独立流水线
-    bool runErrorCalcFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<MeterTask> &meters, int &aliveCount);
+    bool runErrorCalcFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<Meter> &meters, int &aliveCount);
 
 
     // 标准源开机握手
@@ -122,8 +191,12 @@ private:
     // 六通道全量高精度查询帧
     const QByteArray m_queryAllCmd = QByteArray::fromHex("68 6C 00 68 00 91 01 00 00 00 00 02 00 00 00 00 26 00 00 00 00 03 00 00 00 00 04 00 00 00 00 27 00 00 00 00 05 00 00 00 00 06 00 00 00 00 28 00 00 00 00 07 00 00 00 00 08 00 00 00 00 29 00 00 00 00 09 00 00 00 00 0A 00 00 00 00 2A 00 00 00 00 0B 00 00 00 00 0C 00 00 00 00 2B 00 00 00 00 0E 00 00 00 00 0F 00 00 00 00 EF 16");
 
+    QList<TestPoint> m_viTestPoints;
+    QList<TestPoint> m_activePowerTestPoints;
+    QList<TestPoint> m_reactivePowerTestPoints;
+    QList<TestPoint> m_apparentPowerTestPoints;
 
-    QList<MeterTask> m_meterTasks;
+    QList<Meter> m_meters;
     // 新增一个成员变量保存当前模式
     WorkMode m_workMode = Mode_FullAuto;
 };

@@ -11,7 +11,8 @@ Instrument::Instrument(QObject *parent) : QObject{parent}
     connect(m_calibThread, &CalibrationThread::srcMessage, this, &Instrument::srcMessage);
     connect(m_calibThread, &QThread::started, this, &Instrument::isCalibratingChanged);
     connect(m_calibThread, &QThread::finished, this, &Instrument::isCalibratingChanged);
-
+    connect(m_calibThread, &CalibrationThread::updateErrorMeterStatus,this, &Instrument::updateErrorMeterStatus);
+    connect(m_calibThread, &CalibrationThread::appendErrorRow,this, &Instrument::appendErrorRow);
     refreshPorts(); // 启动时获取一次串口列表
 }
 
@@ -28,27 +29,22 @@ void Instrument::refreshPorts()
     }
 }
 
-// 核心分发器：支持缓存和多模式
 void Instrument::startTask(int mode, const QString &srcPort, int srcBaud, const QString &meterPort, int meterBaud, const QVariantList &meterConfigs)
 {
+    // 1. 防重复启动保护
     if (m_calibThread->isRunning()) return;
 
-    // 如果 QML 传了实际配置（不为空），我们就更新缓存
-    if (!srcPort.isEmpty()) {
-        m_lastSrcPort = srcPort;
-        m_lastSrcBaud = srcBaud;
-        m_lastMeterPort = meterPort;
-        m_lastMeterBaud = meterBaud;
-        m_lastMeterConfigs = meterConfigs;
+    // 2. 统一接管启动成功提示
+    if (mode == 0) {
+        qDebug("全自动校准序列已启动");
+    } else {
+        qDebug("单次误差测试已启动");
     }
 
-    if (m_lastMeterConfigs.isEmpty()) {
-        emit showTopMsg("未发现有效的仪表配置，请先在校准页面勾选！", "error");
-        return;
-    }
+    // 3. 直接把前端传进来的参数，原封不动地透传给底层工作线程！
+    m_calibThread->setConfig(mode, srcPort, srcBaud, meterPort, meterBaud, meterConfigs);
 
-    // 透传给底层线程去解析并运行
-    m_calibThread->setConfig(mode, m_lastSrcPort, m_lastSrcBaud, m_lastMeterPort, m_lastMeterBaud, m_lastMeterConfigs);
+    // 4. 发车！
     m_calibThread->start();
 }
 
