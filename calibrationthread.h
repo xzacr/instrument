@@ -35,10 +35,14 @@ public:
         Error_Timeout = 4  // 黄色：通讯超时
     };
     enum CategoryType {
-        Cat_V = 0,
-        Cat_I = 1,
-        Cat_ActivePower = 2,
-        Cat_Harmonic = 3,
+        Cat_V = 0,             // 0: 电压
+        Cat_I = 1,             // 1: 电流
+        Cat_ActivePower = 2,   // 2: 有功功率
+        Cat_ReactivePower = 3, // 3: 无功功率
+        Cat_ApparentPower = 4, // 4: 视在功率
+        Cat_PowerFactor = 5,   // 5: 功率因数
+        Cat_HarmonicV = 6,     // 6: 谐波电压
+        Cat_HarmonicI = 7      // 7: 谐波电流
     };
     // 🌟 新增：把测试工况点定义提升到头文件，作为全局可用的结构
     struct TestPoint {
@@ -46,6 +50,7 @@ public:
         float tgtV;
         float tgtI;
         float tgtPF;
+        float limit;
         QByteArray srcCmd;
     };
     // 🌟 1. 最小数据单元：单元格 (保留所有数据供Excel用，但界面只用误差)
@@ -114,11 +119,13 @@ private slots:
 
 private:
     // 🌟 1. 通用误差计算与 QML 数据打包工具
-    QVariantMap calcErrAndMakeMap(uint8_t addr, const QString &phaseName, float std, float meas, Cell &outCell);
+    QVariantMap calcErrAndMakeMap(uint8_t addr, const QString &phaseName, float std, float meas, Cell &outCell, float limit,const QString &conditionName);
 
     // 🌟 2. 专门处理电压和电流数据的函数
-    void processVoltageCurrentData(Meter &meter, const QString &conditionName, float tgtV, float tgtI, const QVector<float> &viData);
-
+    void processVoltageCurrentData(Meter &meter, const TestPoint &pt, const QVector<float> &rawData);
+    void processActivePowerData(Meter &meter, const TestPoint &pt, const QVector<float> &rawData);
+    void processReactivePowerData(Meter &meter, const TestPoint &pt, const QVector<float> &rawData);
+    void processApparentPowerData(Meter &meter, const TestPoint &pt, const QVector<float> &rawData);
     // 🌟 3. 万能执行引擎（负责切源、等待、读取，读完后回调处理函数）
     // 为了不使用复杂的 std::function 或 Lambda，我们用一个“类别枚举”来让引擎自己判断调哪个处理函数
 
@@ -199,6 +206,7 @@ private:
     QList<Meter> m_meters;
     // 新增一个成员变量保存当前模式
     WorkMode m_workMode = Mode_FullAuto;
+    std::atomic<bool> m_isManualStop{false}; // 🌟 新增：专门记录是否是人为点击的停止
 };
 
 #endif // CALIBRATIONTHREAD_H

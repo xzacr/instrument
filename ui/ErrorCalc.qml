@@ -9,16 +9,21 @@ Item {
     property color themeColor: "#1976D2"
     property color textMain: "#333333"
     property color textSub: "#606266"
-    readonly property int mode_ErrorCalc: 0
+    readonly property int mode_ErrorCalc: 1 // 对应C++的 Mode_ErrorCalc
 
-    property int selectedMeterIndex: 1
+    property int selectedMeterIndex: 0
     property int selectedCategory: 0
+
+    // 接收底层推送的真实数据源：5台仪表，每台8个分类的动态行
+    property var meterDataStore: []
+    property var currentTableModel: [] // 绑定给 ListView 的当前视图数据
 
     property var categories: [
         "电压", "电流", "有功功率", "无功功率",
         "视在功率", "功率因数", "谐波电压", "谐波电流"
     ]
 
+    // 表头列名：需要跟 C++ 下发的单元格数量严格对应
     function getColumns(cat) {
         if (cat === 0) return ["Ua", "Ub", "Uc", "Uab", "Ubc", "Uac"]
         if (cat === 1) return ["Ia", "Ib", "Ic"]
@@ -31,126 +36,115 @@ Item {
         return []
     }
 
-    function getRowCount(cat) {
-        if (cat === 0 || cat === 1) return 3
-        if (cat === 2) return 51
-        if (cat === 3) return 39
-        if (cat === 4) return 15
-        if (cat === 5) return 36
-        if (cat === 6 || cat === 7) return 30
-        return 0
+    // 初始化/清空所有数据的函数
+    function clearAllData() {
+        let fresh = [];
+        for (let i = 0; i < 5; i++) {
+            let cats = [];
+            for (let c = 0; c < 8; c++) cats.push([]);
+            fresh.push(cats);
+
+            // 重置顶部卡片状态
+            meterStateModel.setProperty(i, "status", "IDLE");
+            meterStateModel.setProperty(i, "desc", "等待测试");
+        }
+        meterDataStore = fresh;
+        updateView();
     }
 
-    function getRowHeader(cat, rowIdx) {
-        if (cat === 0) return ["20% (44V)", "100% (220V)", "120% (264V)"][rowIdx % 3]
-        if (cat === 1) return ["10% (0.5A)", "100% (5A)", "120% (6A)"][rowIdx % 3]
+    // 触发 ListView 刷新
+    function updateView() {
+        if (meterDataStore.length > 0) {
+            // 通过 concat 浅拷贝生成新数组，强制 QML 刷新 ListView
+            currentTableModel = [].concat(meterDataStore[selectedMeterIndex][selectedCategory]);
+        }
+    }
 
-        let voltages = ["176V", "220V", "264V"];
+    onSelectedMeterIndexChanged: updateView()
+    onSelectedCategoryChanged: updateView()
+    Component.onCompleted: clearAllData()
 
-        if (cat === 2) {
-            let v = voltages[Math.floor(rowIdx / 17) % 3] || "220V";
-            let subIdx = rowIdx % 17;
-            if (subIdx < 5) {
-                return v + ", PF=1.0, " + ["0.05A", "0.2A", "0.25A", "5.0A", "6.0A"][subIdx];
-            } else if (subIdx < 11) {
-                return v + ", PF=0.5L, " + ["0.1A", "0.25A", "0.4A", "0.5A", "5.0A", "6.0A"][subIdx - 5];
-            } else {
-                return v + ", PF=0.8C, " + ["0.1A", "0.25A", "0.4A", "0.5A", "5.0A", "6.0A"][subIdx - 11];
+    // 🌟 全局信号监听中枢
+    Connections {
+        target: ins
+
+        // 监听测试启动状态，一旦启动，直接清空旧图表
+        function onIsCalibratingChanged() {
+            if (ins.isCalibrating) {
+                clearAllData();
             }
         }
 
-        if (cat === 3) {
-            let v = voltages[Math.floor(rowIdx / 13) % 3] || "220V";
-            let subIdx = rowIdx % 13;
-            if (subIdx < 5) {
-                return v + ", PF=0, " + ["0.1A", "0.2A", "0.25A", "5.0A", "6.0A"][subIdx];
-            } else if (subIdx < 10) {
-                return v + ", PF=0.866, " + ["0.25A", "0.4A", "0.5A", "5.0A", "6.0A"][subIdx - 5];
-            } else {
-                return v + ", PF=0.968, " + ["0.5A", "5.0A", "6.0A"][subIdx - 10];
+        // 接收顶部 5 个卡片的状态更新
+        function onUpdateErrorMeterStatus(meterIndex, statusEnum, desc) {
+            let statusStr = "IDLE";
+            if (statusEnum === 0) statusStr = "IDLE";
+            else if (statusEnum === 1) statusStr = "PASS";
+            else if (statusEnum === 2) statusStr = "FAIL";
+            else if (statusEnum === 3) statusStr = "RUNNING";
+            else if (statusEnum === 4) statusStr = "TIMEOUT"; //     解析新增的掉线状态
+
+            meterStateModel.setProperty(meterIndex, "status", statusStr);
+            meterStateModel.setProperty(meterIndex, "desc", desc);
+        }
+
+        // 接收底层计算好的动态行数据
+        function onAppendErrorRow(meterIndex, categoryIndex, rowName, rowCells) {
+            // 🌟 1. 在更新数据前，先保存滚动条状态 (只在当前视图一致时才处理)
+            let isAtBottom = false;
+            let oldContentY = 0;
+            let isCurrentView = (meterIndex === selectedMeterIndex && categoryIndex === selectedCategory);
+
+            if (isCurrentView) {
+                oldContentY = resultListView.contentY;
+                // 如果内容高度已经超过了可视高度，才需要严格计算是否在底部
+                if (resultListView.contentHeight > resultListView.height) {
+                    isAtBottom = (resultListView.contentY >= resultListView.contentHeight - resultListView.height - 10);
+                } else {
+                    // 还没填满一页时，默认当做在底部，保持追踪
+                    isAtBottom = true;
+                }
+            }
+
+            // ==========================================
+            // 2. 执行您原有的数据更新逻辑
+            let data = meterDataStore;
+            data[meterIndex][categoryIndex].push({
+                "header": rowName,
+                "cells": rowCells
+            });
+            meterDataStore = data;
+
+            // ==========================================
+            // 3. 刷新表格并执行智能滚动
+            if (isCurrentView) {
+                updateView(); // 触发界面重绘
+
+                // 必须用 Qt.callLater，等 updateView 把新 UI 渲染出来后再调滚动条
+                Qt.callLater(function() {
+                    if (isAtBottom) {
+                        // 【模式 A】：自动向下追踪最新数据
+                        resultListView.positionViewAtEnd();
+                    } else {
+                        // 【模式 B】：锁死在您正在看的那行历史数据
+                        if (resultListView.contentHeight > resultListView.height) {
+                            resultListView.contentY = oldContentY;
+                        }
+                    }
+                });
             }
         }
-
-        if (cat === 4) {
-            let v = voltages[Math.floor(rowIdx / 5) % 3] || "220V";
-            let subIdx = rowIdx % 5;
-            return v + ", PF=1, " + ["0.1A", "0.2A", "0.3A", "5.0A", "6.0A"][subIdx];
-        }
-
-        if (cat === 5) {
-            let pfVolts = ["110V", "220V", "264V"];
-            let pfs = ["PF=0.5L", "PF=1.0", "PF=0.8C"];
-            let currents = ["0.5A", "2.5A", "5.0A", "6.0A"];
-
-            let v = pfVolts[Math.floor(rowIdx / 12) % 3];
-            let pf = pfs[Math.floor((rowIdx % 12) / 4)];
-            let c = currents[rowIdx % 4];
-
-            return v + ", " + pf + ", " + c;
-        }
-
-        if (cat === 6 || cat === 7) return "50Hz/220V/5A, " + (rowIdx + 2) + "次谐波"
-
-        return ""
     }
 
-    function getLimit(cat, rowIdx, colIdx) {
-        if (cat === 0 || cat === 1) return "0.5%";
-
-        if (cat === 2) {
-            let subIdx = rowIdx % 17;
-            let isOnePercent = (
-                subIdx === 0 || subIdx === 1 ||
-                subIdx === 5 || subIdx === 6 || subIdx === 7 ||
-                subIdx === 11 || subIdx === 12 || subIdx === 13
-            );
-            if (isOnePercent) return "1.0%";
-
-            let isZeroSixPercent = (
-                subIdx === 8 || subIdx === 9 || subIdx === 10 ||
-                subIdx === 14 || subIdx === 15 || subIdx === 16
-            );
-            if (isZeroSixPercent) return "0.6%";
-
-            return "0.5%";
-        }
-
-        if (cat === 3) {
-            let subIdx = rowIdx % 13;
-            let isZeroSixTwoFive = (
-                subIdx === 0 || subIdx === 1 ||
-                subIdx === 5 || subIdx === 6 ||
-                subIdx === 10 || subIdx === 11 || subIdx === 12
-            );
-            if (isZeroSixTwoFive) return "0.625%";
-            return "0.50%";
-        }
-
-        if (cat === 4) {
-            let subIdx = rowIdx % 5;
-            if (subIdx === 0 || subIdx === 1) return "1.000%";
-            return "0.50%";
-        }
-
-        if (cat === 5) return "0.5%";
-
-        if (cat === 6) {
-            return colIdx < 3 ? "0.15%" : "5.00%";
-        }
-        if (cat === 7) {
-            return colIdx < 3 ? "0.50%" : "5.00%";
-        }
-
-        return "0.5%";
+    // 动态卡片模型
+    ListModel {
+        id: meterStateModel
+        ListElement { title: "1#仪表"; status: "IDLE"; desc: "等待测试" }
+        ListElement { title: "2#仪表"; status: "IDLE"; desc: "等待测试" }
+        ListElement { title: "3#仪表"; status: "IDLE"; desc: "等待测试" }
+        ListElement { title: "4#仪表"; status: "IDLE"; desc: "等待测试" }
+        ListElement { title: "5#仪表"; status: "IDLE"; desc: "等待测试" }
     }
-
-    property var meterStates: [
-        { title: "1#仪表", status: "PASS", desc: "全部合格" },
-        { title: "2#仪表", status: "FAIL", desc: "A相电压超标" },
-        { title: "3#仪表", status: "IDLE", desc: "未启用" },
-        { title: "4#仪表", status: "PASS", desc: "全部合格" },
-        { title: "5#仪表", status: "RUNNING", desc: "读取3次谐波..." }
-    ]
 
     ColumnLayout {
         anchors.fill: parent
@@ -167,14 +161,14 @@ Item {
             spacing: 20
 
             Repeater {
-                model: 5
+                model: meterStateModel
                 delegate: Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
 
-                    property string status: meterStates[index].status
                     property color bgColor: status === "PASS" ? "#4CAF50" :
                                             status === "FAIL" ? "#F44336" :
+                                            status === "TIMEOUT" ? "#F57C00" : // 经典警告橙黄
                                             status === "RUNNING" ? "#2196F3" : "#9E9E9E"
 
                     property bool isSelected: selectedMeterIndex === index
@@ -186,16 +180,14 @@ Item {
                         onClicked: selectedMeterIndex = index
                     }
 
-                    // 悬浮弹起距离动画
                     property real currentMargin: isSelected ? 4 : (cardMouseArea.containsMouse ? 8 : 12)
                     Behavior on currentMargin { NumberAnimation { duration: 250; easing.type: Easing.OutBack } }
 
-                    // 合并主卡片和倒三角
                     Item {
                         id: shapeSource
                         anchors.fill: parent
                         anchors.margins: currentMargin
-                        visible: false // 仅供 MultiEffect 使用
+                        visible: false
 
                         Rectangle {
                             id: mainShadowShape
@@ -215,31 +207,23 @@ Item {
                         }
                     }
 
-                    // 3. 干净锐利的光影层 (不再忽明忽暗，稳定渲染)
                     MultiEffect {
                         source: shapeSource
                         anchors.fill: shapeSource
                         shadowEnabled: true
-                        // 泛出稳定的同色光
                         shadowColor: bgColor
-                        // 固定的高品质模糊
                         shadowBlur: 1.0
-                        // 提亮
                         shadowOpacity: 0.6
-                        // 投影拉长体现浮起
                         shadowVerticalOffset:  8
-
                         Behavior on shadowOpacity { NumberAnimation { duration: 250 } }
                         Behavior on shadowVerticalOffset { NumberAnimation { duration: 250 } }
                         Behavior on shadowColor { ColorAnimation { duration: 250 } }
                     }
 
-                    // 4. 真实可见UI层
                     Item {
                         anchors.fill: parent
                         anchors.margins: currentMargin
 
-                        // 倒三角底层
                         Rectangle {
                             visible: isSelected
                             width: 20; height: 20
@@ -249,7 +233,6 @@ Item {
                             anchors.verticalCenter: mainVisCard.bottom
                         }
 
-                        // 主可视卡片
                         Rectangle {
                             id: mainVisCard
                             anchors.fill: parent
@@ -260,7 +243,6 @@ Item {
                             border.width: isSelected ? 1 : 0
                             clip: true
 
-                            // 顶部深色条
                             Rectangle {
                                 width: parent.width
                                 height: 35
@@ -276,32 +258,37 @@ Item {
                                     anchors.leftMargin: 12
                                     anchors.rightMargin: 12
                                     Label {
-                                        text: meterStates[index].title
+                                        text: title
                                         color: "white"
                                         font.bold: true
                                         font.pixelSize: 16
                                         Layout.fillWidth: true
                                     }
-
                                     Label {
                                         id: stateIcon
-                                        text: status === "FAIL" ? "❗" : (status === "PASS" ? "✔" : (status === "RUNNING" ? "⚙" : "○"))
+                                        text: status === "FAIL" ? "❗" :
+                                              status === "TIMEOUT" ? "⚠" :
+                                              status === "PASS" ? "✔" :
+                                              status === "RUNNING" ? "⚙" : "○"
                                         color: "white"
                                         font.bold: true
                                         font.pixelSize: 16
-
                                         RotationAnimation {
                                             target: stateIcon
                                             loops: Animation.Infinite
                                             from: 0; to: 360
                                             duration: 1500
                                             running: status === "RUNNING"
+                                            onRunningChanged: {
+                                                if (!running) {
+                                                    stateIcon.rotation = 0 // 动画一旦停止，立刻把角度归零
+                                                }
+                                            }
                                         }
                                     }
                                 }
                             }
 
-                            // 大字状态
                             ColumnLayout {
                                 anchors.centerIn: parent
                                 spacing: 0
@@ -314,7 +301,10 @@ Item {
                                     Layout.alignment: Qt.AlignCenter
                                 }
                                 Label {
-                                    text: status === "PASS" ? "合格" : status === "FAIL" ? "不合格" : status === "IDLE" ? "未启用" : "正在测试"
+                                    text: status === "PASS" ? "合格" :
+                                          status === "FAIL" ? "不合格" :
+                                          status === "TIMEOUT" ? "已掉线" :
+                                          status === "IDLE" ? "未启用" : "正在测试"
                                     color: "white"
                                     font.pixelSize: 18
                                     font.bold: true
@@ -322,12 +312,11 @@ Item {
                                 }
                             }
 
-                            // 底部小字
                             Label {
                                 anchors.bottom: parent.bottom
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 anchors.bottomMargin: 10
-                                text: meterStates[index].desc
+                                text: desc
                                 color: "white"
                                 font.pixelSize: 14
                                 horizontalAlignment: Text.AlignHCenter
@@ -350,12 +339,10 @@ Item {
                 model: categories
                 delegate: Button {
                     text: modelData
-                    font.pixelSize: 20
+                    font.pixelSize: 18
                     font.bold: selectedCategory === index
-
                     Layout.preferredHeight: 50
-                    Layout.preferredWidth: implicitWidth + 40
-
+                    Layout.preferredWidth: implicitWidth + 30
                     background: Rectangle {
                         color: selectedCategory === index ? themeColor : "#F0F2F5"
                         radius: 6
@@ -367,31 +354,23 @@ Item {
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
-
                     onClicked: selectedCategory = index
                 }
             }
 
-            // 弹簧：占据剩余所有空间，把后面的按钮硬推到最右侧
             Item { Layout.fillWidth: true }
 
-            // 二合一启动/停止按钮
             Button {
                 id: errorTestBtn
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 160
-
-                // 监听底层的运行状态
                 property bool isRunning: typeof ins !== "undefined" ? ins.isCalibrating : false
 
                 background: Rectangle {
-                    // 运行时显示红色警示，闲置时显示主题蓝色，按下时略微变暗
                     color: parent.pressed ? Qt.darker((errorTestBtn.isRunning ? "#F44336" : themeColor), 1.1) : (errorTestBtn.isRunning ? "#F44336" : themeColor)
                     radius: 6
                 }
-
                 contentItem: Text {
-                    // 根据状态切换文本
                     text: errorTestBtn.isRunning ? "停止测试" : "开始测试"
                     font.bold: true
                     font.pixelSize: 18
@@ -399,16 +378,26 @@ Item {
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
-
                 onClicked: {
                     if (isRunning) {
                         if (typeof ins !== "undefined") {
                             ins.stopCalibration();
                         }
                     } else {
-                        // TODO: 在这里调用底层的 C++ 方法，比如传入 Mode=1 代表单测误差
-                        ins.startTask(mode_ErrorCalc);
-                        console.log("触发开始误差测试！")
+                        let config = calibPage.validateAndGetConfig();
+
+                        // 如果 config 不是 null，说明校验通过了
+                        if (config) {
+                            ins.startTask(
+                                mode_ErrorCalc,
+                                config.srcPort,
+                                config.srcBaud,
+                                config.meterPort,
+                                config.meterBaud,
+                                config.meters
+                            );
+                            console.log("触发开始误差测试！")
+                        }
                     }
                 }
             }
@@ -425,118 +414,109 @@ Item {
                 anchors.fill: parent
                 spacing: 0
 
+                // === 动态表头 ===
                 RowLayout {
                     Layout.fillWidth: true
                     height: 45
                     spacing: 0
 
                     Rectangle {
-                        width: 240
-                        height: parent.height
-                        color: "#F5F7FA"
-                        border.color: "#C0C0C0"
-                        border.width: 1
+                        width: 240; height: parent.height
+                        color: "#F5F7FA"; border.color: "#C0C0C0"; border.width: 1
                         Label {
                             anchors.centerIn: parent
                             text: "测试条件"
-                            font.bold: true
-                            font.pixelSize: 16
-                            color: textMain
+                            font.bold: true; font.pixelSize: 16; color: textMain
                         }
                     }
-
                     Repeater {
                         model: getColumns(selectedCategory)
                         delegate: Rectangle {
-                            Layout.fillWidth: true
-                            height: parent.height
-                            color: "#F5F7FA"
-                            border.color: "#C0C0C0"
-                            border.width: 1
+                            Layout.fillWidth: true; height: parent.height
+                            color: "#F5F7FA"; border.color: "#C0C0C0"; border.width: 1
                             Label {
                                 anchors.centerIn: parent
                                 text: modelData
-                                font.bold: true
-                                font.pixelSize: 16
-                                color: textMain
+                                font.bold: true; font.pixelSize: 16; color: textMain
                             }
                         }
                     }
                 }
 
-                // ==========================================
-                // 底部：数据表格区 (替换掉原来的 ScrollView)
-                // ==========================================
+                // === 真实动态数据渲染区 ===
                 ListView {
                     id: resultListView
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     clip: true
-
-                    // 强制开启交互，允许鼠标左键按住拖拽滑动
                     interactive: true
-                    // 拖到边缘停止，去除触屏那种回弹效果，更符合桌面软件直觉
                     boundsBehavior: Flickable.StopAtBounds
 
-                    model: getRowCount(selectedCategory)
+                    // 绑定为我们的局部动态数组
+                    model: currentTableModel
 
-                    // 将滚动条直接挂载在 ListView 上
                     ScrollBar.vertical: ScrollBar {
-                        active: true
-                        policy: ScrollBar.AlwaysOn
+                        active: true; policy: ScrollBar.AlwaysOn
                     }
 
-                    // 数据行代理
                     delegate: RowLayout {
                         width: ListView.view.width
                         height: 40
                         spacing: 0
 
+                        property var rowData: modelData
+                        // 🌟 保存当前行号，防止被内层的 Repeater 的 index 覆盖
                         property int rowIdx: index
-                        visible: true
 
-                        // 新增：轻量级悬浮侦听器。它只侦听 hover，不拦截任何点击和拖拽事件！
-                        HoverHandler {
-                            id: rowHover
-                        }
+                        // 1. 核心判断：当前行的索引是否等于 ListView 记录的“当前选中索引”
+                        property bool isSelected: resultListView.currentIndex === rowIdx
 
-                        // 定义这一整行的统一背景色：悬浮时亮蓝色，否则斑马纹交替
-                        property color rowBgColor: rowHover.hovered ? "#E6F7FF" : (rowIdx % 2 === 0 ? "#FFFFFF" : "#FAFAFA")
+                        // 2. 悬停监听
+                        HoverHandler { id: rowHover }
 
-                        // 左侧表头固定列
-                        Rectangle {
-                            width: 240
-                            height: parent.height
-                            color: rowBgColor  // 应用统一行色
-                            border.color: "#E0E0E0"
-                            border.width: 1
-
-                            Label {
-                                anchors.centerIn: parent
-                                text: getRowHeader(selectedCategory, rowIdx)
-                                font.bold: true
-                                font.pixelSize: 14
-                                color: textMain
+                        // 3. 点击监听
+                        TapHandler {
+                            onTapped: {
+                                resultListView.currentIndex = rowIdx
                             }
                         }
 
-                        // 右侧动态数据列
+                        // 🌟 4. 颜色逻辑（优先级：选中 > 悬停 > 斑马纹）
+                        property color rowBgColor: {
+                            if (isSelected) return "#CCE8FF"       // 第一优先级：选中时，显示较深的选中蓝
+                            if (rowHover.hovered) return "#E6F7FF" // 第二优先级：悬停时，显示较浅的悬停蓝
+                            return rowIdx % 2 === 0 ? "#FFFFFF" : "#FAFAFA" // 第三优先级：默认斑马纹
+                        }
+
+                        // 测试条件列
+                        Rectangle {
+                            width: 240; height: parent.height
+                            color: rowBgColor; border.color: "#E0E0E0"; border.width: 1
+                            Label {
+                                anchors.centerIn: parent
+                                text: rowData.header
+                                font.bold: true; font.pixelSize: 14; color: textMain
+                            }
+                        }
+
+                        // 真实测量数据列
                         Repeater {
-                            model: getColumns(selectedCategory).length
+                            model: rowData.cells
                             delegate: Rectangle {
                                 Layout.fillWidth: true
                                 height: parent.height
+                                color: rowBgColor // 同步使用外层算好的行背景色
                                 border.color: "#E0E0E0"
                                 border.width: 1
 
-                                color: rowBgColor  // 应用统一行色
-
                                 Label {
                                     anchors.centerIn: parent
-                                    text: getLimit(selectedCategory, rowIdx, model.index)
+                                    // 直接拿C++传来的 errStr，如果是undefined就显示 -
+                                    text: modelData.errStr !== undefined ? modelData.errStr : "-"
                                     font.bold: true
                                     font.pixelSize: 16
-                                    color: "#388E3C"
+                                    // 根据 C++ 的 isFail 字段判断是否标红
+                                    color: modelData.isFail ? "#F44336" : "#388E3C"
                                 }
                             }
                         }
