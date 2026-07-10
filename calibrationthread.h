@@ -67,7 +67,7 @@ public:
         QVector<Cell> cells; // 右侧动态的数据列集合
     };
 
-    // 🌟 3. 某一类别的完整表格 (例如：整个"电压"表，包含多行)
+    // 3. 某一类别的完整表格 (例如：整个"电压"表，包含多行)
     struct Category {
         int categoryIndex;      // 类别标识 (0=电压, 1=电流, 2=有功功率...)
         QVector<Row> rows;  // 表格里的所有行
@@ -100,7 +100,7 @@ signals:
     void showTopMessage(const QString &msg, const QString &type);
     void srcMessage(const QString &msg, const QString &type);
     void meterStepStatusChanged(int meterIndex, int stepIndex, int status);
-    void calirResult(const QString &msg, const QString &type);
+    //void calirResult(const QString &msg, const QString &type);
     //void meterMessage(const QString &msg, const QString &type,const int sn);
     // 🌟 专门用于误差计算页面的卡片状态更新
     // status: 0=IDLE(灰), 1=PASS(绿), 2=FAIL(红), 3=RUNNING(蓝)
@@ -118,6 +118,12 @@ private slots:
     void onMeterPortError(QSerialPort::SerialPortError error);
 
 private:
+    bool readMeterHarmonicData16(QSerialPort &port, quint8 addr, quint16 startReg, int count16, QVector<float> &outValues);
+    // 🌟 谐波专属主流程
+    bool runHarmonicsFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<Meter> &meters, int &aliveCount);
+
+    // 🌟 构造标准源的 0x27 (超集谐波写) 命令
+    QByteArray buildHarmonicCmd(int targetOrder, float vRatio, float iRatio);
     // 🌟 1. 通用误差计算与 QML 数据打包工具
     QVariantMap calcErrAndMakeMap(uint8_t addr, const QString &phaseName, float std, float meas, Cell &outCell, float limit,const QString &conditionName);
 
@@ -126,6 +132,7 @@ private:
     void processActivePowerData(Meter &meter, const TestPoint &pt, const QVector<float> &rawData);
     void processReactivePowerData(Meter &meter, const TestPoint &pt, const QVector<float> &rawData);
     void processApparentPowerData(Meter &meter, const TestPoint &pt, const QVector<float> &rawData);
+    void processPowerFactorData(Meter &meter, const TestPoint &pt, const QVector<float> &rawData);
     // 🌟 3. 万能执行引擎（负责切源、等待、读取，读完后回调处理函数）
     // 为了不使用复杂的 std::function 或 Lambda，我们用一个“类别枚举”来让引擎自己判断调哪个处理函数
 
@@ -181,6 +188,7 @@ private:
     // =====================================================================
     const quint16 m_regWriteProtect = 0x1FFF;
     const quint16 m_regState = 0x2000;
+    const quint16 m_regReset1 = 0x1008;
 
     // 正应答和否应答
     const QByteArray m_srcAck    = QByteArray::fromHex("68 08 00 68 80 10 90 16");
@@ -197,11 +205,14 @@ private:
     const QByteArray m_cfgCmd2 = QByteArray::fromHex("68 6C 00 68 00 92 01 00 00 5C 43 02 00 00 00 00 26 55 00 00 00 03 00 00 5C 43 04 00 00 70 43 27 55 00 00 00 05 00 00 5C 43 06 00 00 F0 42 28 55 00 00 00 07 00 00 A0 40 08 00 00 96 43 29 55 00 00 00 09 00 00 A0 40 0A 00 00 34 43 2A 55 00 00 00 0B 00 00 A0 40 0C 00 00 70 42 2B 55 00 00 00 0E 00 00 48 42 0F 00 00 48 42 66 16");
     // 六通道全量高精度查询帧
     const QByteArray m_queryAllCmd = QByteArray::fromHex("68 6C 00 68 00 91 01 00 00 00 00 02 00 00 00 00 26 00 00 00 00 03 00 00 00 00 04 00 00 00 00 27 00 00 00 00 05 00 00 00 00 06 00 00 00 00 28 00 00 00 00 07 00 00 00 00 08 00 00 00 00 29 00 00 00 00 09 00 00 00 00 0A 00 00 00 00 2A 00 00 00 00 0B 00 00 00 00 0C 00 00 00 00 2B 00 00 00 00 0E 00 00 00 00 0F 00 00 00 00 EF 16");
+    // 0x28 启动全体谐波 (Ua,Ub,Uc,Ia,Ib,Ic = 55 55 55 55 55 55)
+    const QByteArray startAllHarmonicCmd = QByteArray::fromHex("68 0E 00 68 00 28 55 55 55 55 55 55 26 16");
 
     QList<TestPoint> m_viTestPoints;
     QList<TestPoint> m_activePowerTestPoints;
     QList<TestPoint> m_reactivePowerTestPoints;
     QList<TestPoint> m_apparentPowerTestPoints;
+    QList<TestPoint> m_powerFactorTestPoints;
 
     QList<Meter> m_meters;
     // 新增一个成员变量保存当前模式

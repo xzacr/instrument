@@ -153,6 +153,50 @@ CalibrationThread::CalibrationThread(QObject *parent)
      {"264V, PF=1, 5.0A", 264.0f, 5.0f, 1.0f, 0.5f, buildSourceConfigCmd(264.0f, 5.0f, 1.0f)},
      {"264V, PF=1, 6.0A", 264.0f, 6.0f, 1.0f, 0.5f, buildSourceConfigCmd(264.0f, 6.0f, 1.0f)},
      };
+
+    m_powerFactorTestPoints = {
+       // --- 第一组：110V (12个点) ---
+       {"110V, PF=0.5L, 0.5A", 110.0f, 0.5f,  0.5f, 0.5f, buildSourceConfigCmd(110.0f, 0.5f,  0.5f)},
+       {"110V, PF=0.5L, 2.5A", 110.0f, 2.5f,  0.5f, 0.5f, buildSourceConfigCmd(110.0f, 2.5f,  0.5f)},
+       {"110V, PF=0.5L, 5.0A", 110.0f, 5.0f,  0.5f, 0.5f, buildSourceConfigCmd(110.0f, 5.0f,  0.5f)},
+       {"110V, PF=0.5L, 6.0A", 110.0f, 6.0f,  0.5f, 0.5f, buildSourceConfigCmd(110.0f, 6.0f,  0.5f)},
+       {"110V, PF=1.0, 0.5A",  110.0f, 0.5f,  1.0f, 0.5f, buildSourceConfigCmd(110.0f, 0.5f,  1.0f)},
+       {"110V, PF=1.0, 2.5A",  110.0f, 2.5f,  1.0f, 0.5f, buildSourceConfigCmd(110.0f, 2.5f,  1.0f)},
+       {"110V, PF=1.0, 5.0A",  110.0f, 5.0f,  1.0f, 0.5f, buildSourceConfigCmd(110.0f, 5.0f,  1.0f)},
+       {"110V, PF=1.0, 6.0A",  110.0f, 6.0f,  1.0f, 0.5f, buildSourceConfigCmd(110.0f, 6.0f,  1.0f)},
+       {"110V, PF=0.8C, 0.5A", 110.0f, 0.5f, -0.8f, 0.5f, buildSourceConfigCmd(110.0f, 0.5f, -0.8f)},
+       {"110V, PF=0.8C, 2.5A", 110.0f, 2.5f, -0.8f, 0.5f, buildSourceConfigCmd(110.0f, 2.5f, -0.8f)},
+       {"110V, PF=0.8C, 5.0A", 110.0f, 5.0f, -0.8f, 0.5f, buildSourceConfigCmd(110.0f, 5.0f, -0.8f)},
+       {"110V, PF=0.8C, 6.0A", 110.0f, 6.0f, -0.8f, 0.5f, buildSourceConfigCmd(110.0f, 6.0f, -0.8f)},
+
+       // --- 第二组：220V (12个点) ---
+       {"220V, PF=0.5L, 0.5A", 220.0f, 0.5f,  0.5f, 0.5f, buildSourceConfigCmd(220.0f, 0.5f,  0.5f)},
+       {"220V, PF=0.5L, 2.5A", 220.0f, 2.5f,  0.5f, 0.5f, buildSourceConfigCmd(220.0f, 2.5f,  0.5f)},
+       {"220V, PF=0.5L, 5.0A", 220.0f, 5.0f,  0.5f, 0.5f, buildSourceConfigCmd(220.0f, 5.0f,  0.5f)},
+       {"220V, PF=0.5L, 6.0A", 220.0f, 6.0f,  0.5f, 0.5f, buildSourceConfigCmd(220.0f, 6.0f,  0.5f)},
+       {"220V, PF=1.0, 0.5A",  220.0f, 0.5f,  1.0f, 0.5f, buildSourceConfigCmd(220.0f, 0.5f,  1.0f)},
+       {"220V, PF=1.0, 2.5A",  220.0f, 2.5f,  1.0f, 0.5f, buildSourceConfigCmd(220.0f, 2.5f,  1.0f)},
+       {"220V, PF=1.0, 5.0A",  220.0f, 5.0f,  1.0f, 0.5f, buildSourceConfigCmd(220.0f, 5.0f,  1.0f)},
+       {"220V, PF=1.0, 6.0A",  220.0f, 6.0f,  1.0f, 0.5f, buildSourceConfigCmd(220.0f, 6.0f,  1.0f)},
+       {"220V, PF=0.8C, 0.5A", 220.0f, 0.5f, -0.8f, 0.5f, buildSourceConfigCmd(220.0f, 0.5f, -0.8f)},
+       {"220V, PF=0.8C, 2.5A", 220.0f, 2.5f, -0.8f, 0.5f, buildSourceConfigCmd(220.0f, 2.5f, -0.8f)},
+       {"220V, PF=0.8C, 5.0A", 220.0f, 5.0f, -0.8f, 0.5f, buildSourceConfigCmd(220.0f, 5.0f, -0.8f)},
+       {"220V, PF=0.8C, 6.0A", 220.0f, 6.0f, -0.8f, 0.5f, buildSourceConfigCmd(220.0f, 6.0f, -0.8f)},
+
+       // --- 第三组：264V (12个点) ---
+       {"264V, PF=0.5L, 0.5A", 264.0f, 0.5f,  0.5f, 0.5f, buildSourceConfigCmd(264.0f, 0.5f,  0.5f)},
+       {"264V, PF=0.5L, 2.5A", 264.0f, 2.5f,  0.5f, 0.5f, buildSourceConfigCmd(264.0f, 2.5f,  0.5f)},
+       {"264V, PF=0.5L, 5.0A", 264.0f, 5.0f,  0.5f, 0.5f, buildSourceConfigCmd(264.0f, 5.0f,  0.5f)},
+       {"264V, PF=0.5L, 6.0A", 264.0f, 6.0f,  0.5f, 0.5f, buildSourceConfigCmd(264.0f, 6.0f,  0.5f)},
+       {"264V, PF=1.0, 0.5A",  264.0f, 0.5f,  1.0f, 0.5f, buildSourceConfigCmd(264.0f, 0.5f,  1.0f)},
+       {"264V, PF=1.0, 2.5A",  264.0f, 2.5f,  1.0f, 0.5f, buildSourceConfigCmd(264.0f, 2.5f,  1.0f)},
+       {"264V, PF=1.0, 5.0A",  264.0f, 5.0f,  1.0f, 0.5f, buildSourceConfigCmd(264.0f, 5.0f,  1.0f)},
+       {"264V, PF=1.0, 6.0A",  264.0f, 6.0f,  1.0f, 0.5f, buildSourceConfigCmd(264.0f, 6.0f,  1.0f)},
+       {"264V, PF=0.8C, 0.5A", 264.0f, 0.5f, -0.8f, 0.5f, buildSourceConfigCmd(264.0f, 0.5f, -0.8f)},
+       {"264V, PF=0.8C, 2.5A", 264.0f, 2.5f, -0.8f, 0.5f, buildSourceConfigCmd(264.0f, 2.5f, -0.8f)},
+       {"264V, PF=0.8C, 5.0A", 264.0f, 5.0f, -0.8f, 0.5f, buildSourceConfigCmd(264.0f, 5.0f, -0.8f)},
+       {"264V, PF=0.8C, 6.0A", 264.0f, 6.0f, -0.8f, 0.5f, buildSourceConfigCmd(264.0f, 6.0f, -0.8f)},
+       };
 }
 
 CalibrationThread::~CalibrationThread()
@@ -243,7 +287,7 @@ void CalibrationThread::run()
     // 全部通关或彻底结束！
     if (m_isRunning) {
         qInfo() << "====== 流程圆满结束，有效仪表数：" << aliveCount << " ======";
-        emit showTopMessage(QString("测试流程执行完毕，成功 %1 台").arg(aliveCount), "success");
+        emit showTopMessage(QString("测试流程执行完毕，有效仪表数 %1 台").arg(aliveCount), "info");
         goto SUCCESS_EXIT;
     }
 
@@ -261,11 +305,11 @@ ABORT_PROCESS:
 SUCCESS_EXIT:
     qInfo() << "正在停止标准源...";
     emit srcMessage("正在停止标准源...", "success");
-    srcPort.write(m_stopCmd);
-    srcPort.waitForBytesWritten(500);
-    if (srcPort.waitForReadyRead(500)) {
+    if (sendSourceCmd(srcPort, m_stopCmd, 6000)){
         qInfo().noquote() << "[Rx 源强停确认]" << srcPort.readAll().toHex(' ').toUpper();
         emit srcMessage("Stop / 已停止", "success");
+    }else{
+        qWarning("标准源停止失败");
     }
 }
 
@@ -274,6 +318,17 @@ SUCCESS_EXIT:
 // -------------------------------------------------------------------------
 bool CalibrationThread::runCalibrationFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<Meter> &meters, int &aliveCount)
 {
+    qInfo() << ">>> 开始批量下发 [复位指令]...";
+
+    for (auto &meter : meters) {
+        if (!meter.isAlive) continue;
+        //emit meterStepStatusChanged(meter.uiIndex, Step_Reset, State_Running);
+        writeMeterReg(meterPort, meter.address, m_regReset1, 1);
+        QThread::msleep(500);
+    }
+
+    qInfo() << ">>> 所有表复位已下发，总线静默 1500ms 等待单片机重启...";
+    QThread::msleep(2000);
     // =========================================================
     // 阶段一：标准源输出 220V 5A 1.0PF
     // =========================================================
@@ -284,10 +339,12 @@ bool CalibrationThread::runCalibrationFlow(QSerialPort &srcPort, QSerialPort &me
     emit srcMessage("220V/5A/PF=1.0 等待源稳定...", "info");
     if (!sendSourceCmd(srcPort, m_startCmd, 6000)) return false;
 
-    QThread::msleep(3000);
+    // QThread::msleep(300);
 
-    qInfo() << "正在全通道监测物理输出，验证三相配置...";
-    if (!waitSourceStable(srcPort, 1.0f, 1000)) return false;
+    // qInfo() << "正在全通道监测物理输出，验证三相配置...";
+    // if (!waitSourceStable(srcPort, 1.0f, 1000)) return false;
+    qDebug("3. 等待源和仪表稳定...");
+    QThread::msleep(10000);
 
     emit srcMessage("220V/5A/PF=1.0", "success");
     if (!m_isRunning) return false;
@@ -320,6 +377,7 @@ bool CalibrationThread::runCalibrationFlow(QSerialPort &srcPort, QSerialPort &me
     // 步骤 1：校准准备 (包含写 0 和写 1)
     // =========================================================
     qInfo() << ">>> 开始批量执行 [校准准备]...";
+    QThread::msleep(1000);
     aliveCount = 0;
     for (auto &meter : meters) {
         if (!meter.isAlive) continue;
@@ -350,6 +408,7 @@ bool CalibrationThread::runCalibrationFlow(QSerialPort &srcPort, QSerialPort &me
     // 步骤 2：电压电流校准 (PF=1.0)
     // =========================================================
     qInfo() << ">>> 开始批量执行 [PF=1.0 校准]...";
+    QThread::msleep(1000);
     aliveCount = 0;
     for (auto &meter : meters) {
         if (!meter.isAlive) continue;
@@ -380,11 +439,13 @@ bool CalibrationThread::runCalibrationFlow(QSerialPort &srcPort, QSerialPort &me
     emit srcMessage("220V/5A/PF=0.5 等待源稳定...", "info");
     if (!sendSourceCmd(srcPort, m_startCmd, 6000)) return false;
 
-    QThread::msleep(3000);
+    // QThread::msleep(300);
 
-    qInfo() << "正在全通道监测物理输出，验证三相全量配置(0.5PF)...";
-    if (!waitSourceStable(srcPort, 0.5f, 1000)) return false;
+    // qInfo() << "正在全通道监测物理输出，验证三相全量配置(0.5PF)...";
+    // if (!waitSourceStable(srcPort, 0.5f, 1000)) return false;
 
+    QThread::msleep(10000);
+    qDebug("3. 等待源和仪表稳定...");
     emit srcMessage("220V/5A/PF=0.5", "success");
     if (!m_isRunning) return false;
 
@@ -392,6 +453,7 @@ bool CalibrationThread::runCalibrationFlow(QSerialPort &srcPort, QSerialPort &me
     // 步骤 3：电压电流校准 (PF=0.5)
     // =========================================================
     qInfo() << ">>> 开始批量执行 [PF=0.5 相位校准]...";
+    QThread::msleep(1000);
     aliveCount = 0;
     for (auto &meter : meters) {
         if (!meter.isAlive) continue;
@@ -415,6 +477,7 @@ bool CalibrationThread::runCalibrationFlow(QSerialPort &srcPort, QSerialPort &me
     // 步骤 4：参数固化保存
     // =========================================================
     qInfo() << ">>> 正在更新 [参数固化保存] 状态...";
+    QThread::msleep(1000);
     for (auto &meter : meters) {
         if (!meter.isAlive) continue;
         emit meterStepStatusChanged(meter.uiIndex, Step_Save, State_Running);
@@ -427,11 +490,12 @@ bool CalibrationThread::runCalibrationFlow(QSerialPort &srcPort, QSerialPort &me
     // =========================================================
     qInfo() << ">>> 开始批量下发 [复位指令]...";
     aliveCount = 0;
-
+    QThread::msleep(1000);
     for (auto &meter : meters) {
         if (!meter.isAlive) continue;
         emit meterStepStatusChanged(meter.uiIndex, Step_Reset, State_Running);
-        writeMeterReg(meterPort, meter.address, m_regState, 7, false);
+        //writeMeterReg(meterPort, meter.address, m_regState, 7, false);
+        writeMeterReg(meterPort, meter.address, m_regState, 7);
         QThread::msleep(500);
     }
 
@@ -470,28 +534,38 @@ bool CalibrationThread::runErrorCalcFlow(QSerialPort &srcPort, QSerialPort &mete
     }
 
 
-    // 1. 执行电压电流测试 (地址 0x1018, 9个参数)
-    qInfo() << "====== 1. 执行电压电流测试 ======";
-    if (!runTestCategory(srcPort, meterPort, Cat_V, 0x1018, 9, m_viTestPoints, meters, aliveCount)) {
-        return false;
-    }
+    //1. 执行电压电流测试 (地址 0x1018, 9个参数)
+    // qInfo() << "====== 1. 执行电压电流测试 ======";
+    // if (!runTestCategory(srcPort, meterPort, Cat_V, 0x1018, 9, m_viTestPoints, meters, aliveCount)) {
+    //     return false;
+    // }
 
-    // 2. 执行有功功率测试
-    qInfo() << "====== 2. 执行有功功率测试 ======";
-    // 从 0x102C 开始，一口气读 24 个寄存器(包含P,Q,S的相和总值)。isSigned参数引擎里会设为 true
-    if (!runTestCategory(srcPort, meterPort, Cat_ActivePower, 0x102C, 24, m_activePowerTestPoints, meters, aliveCount)) {
-        return false;
-    }
+    // // 2. 执行有功功率测试
+    // qInfo() << "====== 2. 执行有功功率测试 ======";
+    // if (!runTestCategory(srcPort, meterPort, Cat_ActivePower, 0x300C, 4, m_activePowerTestPoints, meters, aliveCount)) {
+    //     return false;
+    // }
 
-    // 3. 执行无功功率测试
-    qInfo() << "====== 3. 执行无功功率测试 ======";
-    if (!runTestCategory(srcPort, meterPort, Cat_ReactivePower, 0x102C, 24, m_reactivePowerTestPoints, meters, aliveCount)) {
-        return false;
-    }
+    // // 3. 执行无功功率测试
+    // qInfo() << "====== 3. 执行无功功率测试 ======";
+    // if (!runTestCategory(srcPort, meterPort, Cat_ReactivePower, 0x3014, 4, m_reactivePowerTestPoints, meters, aliveCount)) {
+    //     return false;
+    // }
 
-    // 4. 执行视在功率测试
-    qInfo() << "====== 4. 执行视在功率测试 ======";
-    if (!runTestCategory(srcPort, meterPort, Cat_ApparentPower, 0x102C, 24, m_apparentPowerTestPoints, meters, aliveCount)) {
+    // // 4. 执行视在功率测试
+    // qInfo() << "====== 4. 执行视在功率测试 ======";
+    // if (!runTestCategory(srcPort, meterPort, Cat_ApparentPower, 0x301C, 4, m_apparentPowerTestPoints, meters, aliveCount)) {
+    //     return false;
+    // }
+
+    // // 5. 执行功率因数测试
+    // qInfo() << "====== 5. 执行功率因数测试 ======";
+    // if (!runTestCategory(srcPort, meterPort, Cat_PowerFactor, 0x1044, 4, m_powerFactorTestPoints, meters, aliveCount)) {
+    //     return false;
+    // }
+
+    // 6. 执行全段谐波测试 (双通道同测)
+    if (!runHarmonicsFlow(srcPort, meterPort, meters, aliveCount)) {
         return false;
     }
 
@@ -512,6 +586,246 @@ bool CalibrationThread::runErrorCalcFlow(QSerialPort &srcPort, QSerialPort &mete
     }
 
     qDebug("误差测试完毕: %d 台合格, %d 台超标, %d 台未启用或超时",pass,fail,5-pass-fail);
+
+    return true;
+}
+
+// ------------------------------------------------------------------------------
+// 构造超集谐波写指令 (固定 3104 字节)
+// ------------------------------------------------------------------------------
+QByteArray CalibrationThread::buildHarmonicCmd(int targetOrder, float vRatio, float iRatio)
+{
+    QByteArray data;
+    QDataStream stream(&data, QIODevice::WriteOnly);
+    stream.setByteOrder(QDataStream::LittleEndian);
+
+    // 基波 100% = 0x6666
+    uint16_t baseVal = 0x6666;
+    uint16_t vHarmVal = (uint16_t)(baseVal * (vRatio / 100.0f));
+    uint16_t iHarmVal = (uint16_t)(baseVal * (iRatio / 100.0f));
+
+    // 1. 写入 6 个通道的幅度 (1~129次)
+    for (int ch = 0; ch < 6; ++ch) {
+        for (int h = 1; h <= 129; ++h) {
+            if (h == 1) {
+                stream << baseVal;
+            } else if (h == targetOrder) {
+                stream << (uint16_t)((ch < 3) ? vHarmVal : iHarmVal);
+            } else {
+                stream << (uint16_t)0;
+            }
+        }
+    }
+
+    // 2. 写入 6 个通道的相位 (1~129次)
+    uint16_t basePhases[6] = {0, 24000, 12000, 0, 24000, 12000};
+    for (int ch = 0; ch < 6; ++ch) {
+        for (int h = 1; h <= 129; ++h) {
+            if (h == 1) {
+                stream << basePhases[ch];
+            } else {
+                stream << (uint16_t)0;
+            }
+        }
+    }
+
+    QByteArray frame;
+    frame.append(0x68);
+    uint16_t len = 3104; // 数据段3096 + 其他固定位 = 3104
+    frame.append(len & 0xFF);
+    frame.append((len >> 8) & 0xFF);
+    frame.append(0x68);
+    frame.append((char)0x00);
+    frame.append(0x27);
+    frame.append(data);
+
+    uint8_t cs = 0;
+    for (int i = 4; i < frame.size(); ++i) cs += (uint8_t)frame[i];
+    frame.append(cs);
+    frame.append(0x16);
+
+    return frame;
+}
+
+bool CalibrationThread::runHarmonicsFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<Meter> &meters, int &aliveCount)
+{
+    qInfo() << "====== 正在启动 [2~31次 谐波极速同测] 系统 ======";
+
+    qInfo() << ">>> 开始批量执行 [模式初始化]，模式码:" << 7;
+    aliveCount = 0;
+    for (auto &meter : meters) {
+        if (!meter.isAlive || !meter.isEnabled) continue; // 必须是存活的表才操作
+
+        writeMeterReg(meterPort, meter.address, m_regWriteProtect, 7);
+        // 校验模式是否写入成功
+        if (waitMeterState(meterPort, meter.address, m_regWriteProtect, 7, 2000)) {
+            aliveCount++; // 只有写入成功的表，才算活着，才进入下一步测试
+        } else {
+            // 写入失败
+            meter.isAlive = false;
+            emit updateErrorMeterStatus(meter.uiIndex, Error_Timeout, "模式设置超时");
+        }
+    }
+
+    // 防呆：如果全军覆没，立刻终止，绝不跑空
+    if (aliveCount == 0) {
+        emit showTopMessage("全部仪表模式设置失败，测试终止", "error");
+        return false;
+    }
+
+    for (int h = 2; h <= 31; ++h) {
+        if(h != 2 && h != 5 && h != 7 && h != 11) continue;
+        QString rowName = QString("50Hz/220V/5A, %1次谐波").arg(h);
+        qInfo() << "\n 正在测试:" << rowName;
+
+        QMap<int, QVariantList> volCellsMap;
+        QMap<int, QVariantList> curCellsMap;
+
+        // 1. 准备专用的 Row 容器，用于存放数据和超差状态
+        QMap<int, Row> volRowMap;
+        QMap<int, Row> curRowMap;
+
+        quint16 regAddr = 0x3030 + (h - 2) * 6; // 计算点表地址
+
+        for (auto &m : meters) {
+            if (m.isAlive) {
+                emit updateErrorMeterStatus(m.uiIndex, Error_Running, "正在测: " + rowName);
+
+                // 2. 为存活的表初始化 6 个空格子，准备接收数据
+                volRowMap[m.uiIndex].conditionName = rowName;
+                volRowMap[m.uiIndex].cells.resize(6);
+
+                curRowMap[m.uiIndex].conditionName = rowName;
+                curRowMap[m.uiIndex].cells.resize(6);
+            }
+        }
+
+        // ========================================================
+        // 步骤 A：低含量组 (电压 3%, 电流 10%)
+        // ========================================================
+        qInfo() << "  -> 执行低含量配置 (V:3%, I:10%)...";
+
+        qDebug("1. 下发 220V 5A 1.0PF 配置...");
+        if (!sendSourceCmd(srcPort, m_cfgCmd1)) return false;
+        QThread::msleep(300);
+
+        qDebug("2. 启动标准源基波输出...");
+        if (!sendSourceCmd(srcPort, m_startCmd, 6000)) return false;
+        QThread::msleep(300);
+
+        qDebug("3. 下发 %d 次谐波参数 (V:3%%, I:10%%)...", h);
+        if (!sendSourceCmd(srcPort, buildHarmonicCmd(h, 3.0f, 10.0f))) return false;
+        QThread::msleep(300);
+
+        qDebug("4. 启动全体谐波输出 (40 秒延时)...");
+        if (!sendSourceCmd(srcPort, startAllHarmonicCmd, 40000)) return false;
+        if (!m_isRunning) return false;
+
+        QThread::msleep(10000);
+
+        // 读表
+        aliveCount = 0;
+        for (auto &meter : meters) {
+            if (!meter.isAlive) continue;
+            QVector<float> rawA;
+            if (readMeterHarmonicData16(meterPort, meter.address, regAddr, 6, rawA)) {
+                aliveCount++;
+                // 3. 取消临时变量 c，直接存入 volRowMap 的前 3 个格子，同步记录超差状态
+                volCellsMap[meter.uiIndex] << calcErrAndMakeMap(meter.address, "Ua", 3.0f, rawA[0], volRowMap[meter.uiIndex].cells[0], 0.15f, rowName);
+                volCellsMap[meter.uiIndex] << calcErrAndMakeMap(meter.address, "Ub", 3.0f, rawA[1], volRowMap[meter.uiIndex].cells[1], 0.15f, rowName);
+                volCellsMap[meter.uiIndex] << calcErrAndMakeMap(meter.address, "Uc", 3.0f, rawA[2], volRowMap[meter.uiIndex].cells[2], 0.15f, rowName);
+
+                curCellsMap[meter.uiIndex] << calcErrAndMakeMap(meter.address, "Ia", 10.0f, rawA[3], curRowMap[meter.uiIndex].cells[0], 0.5f, rowName);
+                curCellsMap[meter.uiIndex] << calcErrAndMakeMap(meter.address, "Ib", 10.0f, rawA[4], curRowMap[meter.uiIndex].cells[1], 0.5f, rowName);
+                curCellsMap[meter.uiIndex] << calcErrAndMakeMap(meter.address, "Ic", 10.0f, rawA[5], curRowMap[meter.uiIndex].cells[2], 0.5f, rowName);
+            }else{
+                meter.isAlive = false;
+                emit updateErrorMeterStatus(meter.uiIndex, Error_Timeout, "通讯失败");
+            }
+            QThread::msleep(100);
+        }
+        if (!m_isRunning) return false;
+        if (aliveCount == 0) {
+            qWarning() << "所有被测表计均已掉线，终止谐波测试！";
+            return false;
+        }
+
+        // ========================================================
+        // 步骤 B：高含量组 (电压 10%, 电流 20%)
+        // ========================================================
+        qInfo() << "  -> 执行高含量配置 (V:10%, I:20%)...";
+
+        qDebug("1. 下发 220V 5A 1.0PF 配置...");
+        if (!sendSourceCmd(srcPort, m_cfgCmd1)) return false;
+        QThread::msleep(300);
+
+        qDebug("2. 启动标准源基波输出...");
+        if (!sendSourceCmd(srcPort, m_startCmd, 6000)) return false;
+        QThread::msleep(300);
+
+        qDebug("3. 下发 %d 次谐波参数 (V:10%%, I:20%%)...", h);
+        if (!sendSourceCmd(srcPort, buildHarmonicCmd(h, 10.0f, 20.0f))) return false;
+        QThread::msleep(300);
+
+        qDebug("4. 启动全体谐波输出 (40 秒延时)...");
+        if (!sendSourceCmd(srcPort, startAllHarmonicCmd, 40000)) return false;
+        if (!m_isRunning) return false;
+
+        QThread::msleep(10000);
+
+        // 读表
+        aliveCount = 0;
+        for (auto &meter : meters) {
+            if (!meter.isAlive) continue;
+            QVector<float> rawB;
+            if (readMeterHarmonicData16(meterPort, meter.address, regAddr, 6, rawB)) {
+                aliveCount++;
+                // 4. 将高含量数据存入 volRowMap 的后 3 个格子
+                volCellsMap[meter.uiIndex] << calcErrAndMakeMap(meter.address, "Ua", 10.0f, rawB[0], volRowMap[meter.uiIndex].cells[3], 5.0f, rowName);
+                volCellsMap[meter.uiIndex] << calcErrAndMakeMap(meter.address, "Ub", 10.0f, rawB[1], volRowMap[meter.uiIndex].cells[4], 5.0f, rowName);
+                volCellsMap[meter.uiIndex] << calcErrAndMakeMap(meter.address, "Uc", 10.0f, rawB[2], volRowMap[meter.uiIndex].cells[5], 5.0f, rowName);
+
+                curCellsMap[meter.uiIndex] << calcErrAndMakeMap(meter.address, "Ia", 20.0f, rawB[3], curRowMap[meter.uiIndex].cells[3], 5.0f, rowName);
+                curCellsMap[meter.uiIndex] << calcErrAndMakeMap(meter.address, "Ib", 20.0f, rawB[4], curRowMap[meter.uiIndex].cells[4], 5.0f, rowName);
+                curCellsMap[meter.uiIndex] << calcErrAndMakeMap(meter.address, "Ic", 20.0f, rawB[5], curRowMap[meter.uiIndex].cells[5], 5.0f, rowName);
+            }else{
+                meter.isAlive = false;
+                emit updateErrorMeterStatus(meter.uiIndex, Error_Timeout, "通讯失败");
+            }
+            QThread::msleep(100);
+        }
+        if (!m_isRunning) return false;
+        if (aliveCount == 0) {
+            qWarning() << "所有被测表计均已掉线，终止谐波测试！";
+            return false;
+        }
+
+        // ========================================================
+        // 步骤 C：超标判定、数据落盘与界面刷新
+        // ========================================================
+        for (auto &meter : meters) {
+            if (!meter.isAlive) continue;
+            if (volCellsMap[meter.uiIndex].size() == 6 && curCellsMap[meter.uiIndex].size() == 6) {
+
+                // 5. 遍历检查是否有一项超差，有则给表计盖上 Fail 戳
+                for (const auto& c : std::as_const(volRowMap[meter.uiIndex].cells)) if (c.isFail) meter.hasFail = true;
+                for (const auto& c : std::as_const(curRowMap[meter.uiIndex].cells)) if (c.isFail) meter.hasFail = true;
+
+                // 6. 把这两行数据，永久写入内存（Cat 6 是电压谐波，Cat 7 是电流谐波）
+                meter.categories[6].rows.append(volRowMap[meter.uiIndex]);
+                meter.categories[7].rows.append(curRowMap[meter.uiIndex]);
+
+                // 7. 发送信号，刷新前端 QML 界面
+                emit appendErrorRow(meter.uiIndex, 6, rowName, volCellsMap[meter.uiIndex]); // Cat 6:电压谐波
+                emit appendErrorRow(meter.uiIndex, 7, rowName, curCellsMap[meter.uiIndex]); // Cat 7:电流谐波
+            } else {
+                emit updateErrorMeterStatus(meter.uiIndex, Error_Fail, "读取谐波失败");
+                meter.hasFail = true;
+            }
+        }
+    }
+
+    qDebug("谐波测试结束");
 
     return true;
 }
@@ -595,11 +909,10 @@ void CalibrationThread::processActivePowerData(Meter &meter, const TestPoint &pt
     Row row; row.conditionName = pt.name; row.cells.resize(4);
     QVariantList qmlCells;
 
-    // 根据您的 C 代码，pData[0~2] 是 Pa, Pb, Pc。pData[9] 是 P总。
     qmlCells << calcErrAndMakeMap(meter.address, "Pa", stdP, pData[0], row.cells[0],pt.limit,pt.name);
     qmlCells << calcErrAndMakeMap(meter.address, "Pb", stdP, pData[1], row.cells[1],pt.limit,pt.name);
     qmlCells << calcErrAndMakeMap(meter.address, "Pc", stdP, pData[2], row.cells[2],pt.limit,pt.name);
-    qmlCells << calcErrAndMakeMap(meter.address, "P总", stdPTotal, pData[9], row.cells[3],pt.limit,pt.name);
+    qmlCells << calcErrAndMakeMap(meter.address, "P总", stdPTotal, pData[3], row.cells[3],pt.limit,pt.name);
 
     for (const auto& c : std::as_const(row.cells)) if (c.isFail) meter.hasFail = true;
     meter.categories[Cat_ActivePower].rows.append(row);
@@ -626,10 +939,10 @@ void CalibrationThread::processReactivePowerData(Meter &meter, const TestPoint &
     QVariantList qmlCells;
 
     // 根据您的 C 代码，pData[3~5] 是 Qa, Qb, Qc。pData[10] 是 Q总。
-    qmlCells << calcErrAndMakeMap(meter.address, "Qa", stdQ, pData[3], row.cells[0],pt.limit,pt.name);
-    qmlCells << calcErrAndMakeMap(meter.address, "Qb", stdQ, pData[4], row.cells[1],pt.limit,pt.name);
-    qmlCells << calcErrAndMakeMap(meter.address, "Qc", stdQ, pData[5], row.cells[2],pt.limit,pt.name);
-    qmlCells << calcErrAndMakeMap(meter.address, "Q总", stdQTotal, pData[10], row.cells[3],pt.limit,pt.name);
+    qmlCells << calcErrAndMakeMap(meter.address, "Qa", stdQ, pData[0], row.cells[0],pt.limit,pt.name);
+    qmlCells << calcErrAndMakeMap(meter.address, "Qb", stdQ, pData[1], row.cells[1],pt.limit,pt.name);
+    qmlCells << calcErrAndMakeMap(meter.address, "Qc", stdQ, pData[2], row.cells[2],pt.limit,pt.name);
+    qmlCells << calcErrAndMakeMap(meter.address, "Q总", stdQTotal, pData[3], row.cells[3],pt.limit,pt.name);
 
     for (const auto& c : std::as_const(row.cells)) if (c.isFail) meter.hasFail = true;
     meter.categories[Cat_ReactivePower].rows.append(row);
@@ -649,19 +962,42 @@ void CalibrationThread::processApparentPowerData(Meter &meter, const TestPoint &
     QVariantList qmlCells;
 
     // 根据您的 C 代码，pData[6~8] 是 Sa, Sb, Sc。pData[11] 是 S总。
-    qmlCells << calcErrAndMakeMap(meter.address, "Sa", stdS, pData[6], row.cells[0],pt.limit,pt.name);
-    qmlCells << calcErrAndMakeMap(meter.address, "Sb", stdS, pData[7], row.cells[1],pt.limit,pt.name);
-    qmlCells << calcErrAndMakeMap(meter.address, "Sc", stdS, pData[8], row.cells[2],pt.limit,pt.name);
-    qmlCells << calcErrAndMakeMap(meter.address, "S总", stdSTotal, pData[11], row.cells[3],pt.limit,pt.name);
+    qmlCells << calcErrAndMakeMap(meter.address, "Sa", stdS, pData[0], row.cells[0],pt.limit,pt.name);
+    qmlCells << calcErrAndMakeMap(meter.address, "Sb", stdS, pData[1], row.cells[1],pt.limit,pt.name);
+    qmlCells << calcErrAndMakeMap(meter.address, "Sc", stdS, pData[2], row.cells[2],pt.limit,pt.name);
+    qmlCells << calcErrAndMakeMap(meter.address, "S总", stdSTotal, pData[3], row.cells[3],pt.limit,pt.name);
 
     for (const auto& c : std::as_const(row.cells)) if (c.isFail) meter.hasFail = true;
     meter.categories[Cat_ApparentPower].rows.append(row);
     emit appendErrorRow(meter.uiIndex, Cat_ApparentPower, pt.name, qmlCells);
 }
 
+// =========================================================================
+// 5. 专项处理：功率因数 (Cat_PowerFactor = 5)
+// 假设单片机数据紧接在视在功率之后：地址 0x1044，读 8 个寄存器
+// rawData[0]~[3] 分别对应 PFa, PFb, PFc, PF总
+// =========================================================================
+void CalibrationThread::processPowerFactorData(Meter &meter, const TestPoint &pt, const QVector<float> &rawData)
+{
+    float stdPF = pt.tgtPF; // 理论值直接从 pt 中提取 (例如 1.0, 0.5, -0.8)
+
+    Row row; row.conditionName = pt.name; row.cells.resize(4);
+    QVariantList qmlCells;
+
+    // 直接提取绑定的专属限值 pt.limit
+    qmlCells << calcErrAndMakeMap(meter.address, "PFa", stdPF, rawData[0], row.cells[0], pt.limit, pt.name);
+    qmlCells << calcErrAndMakeMap(meter.address, "PFb", stdPF, rawData[1], row.cells[1], pt.limit, pt.name);
+    qmlCells << calcErrAndMakeMap(meter.address, "PFc", stdPF, rawData[2], row.cells[2], pt.limit, pt.name);
+    qmlCells << calcErrAndMakeMap(meter.address, "PF总", stdPF, rawData[3], row.cells[3], pt.limit, pt.name);
+
+    for (const auto& c : std::as_const(row.cells)) if (c.isFail) meter.hasFail = true;
+    meter.categories[Cat_PowerFactor].rows.append(row);
+    emit appendErrorRow(meter.uiIndex, Cat_PowerFactor, pt.name, qmlCells);
+}
+
 bool CalibrationThread::runTestCategory(QSerialPort &srcPort, QSerialPort &meterPort, CategoryType catType, uint16_t startAddr, int regCount, const QList<TestPoint> &testPoints, QList<Meter> &meters,int &aliveCount)
 {
-    // 1. 🌟 确定本次的模式码
+    // 1. 确定本次的模式码
     uint16_t writeMode = 0;
     switch(catType) {
     case Cat_V:
@@ -703,13 +1039,14 @@ bool CalibrationThread::runTestCategory(QSerialPort &srcPort, QSerialPort &meter
 
         timer.start();
         if (!sendSourceCmd(srcPort, pt.srcCmd)) return false;
+        QThread::msleep(300);
         if (!sendSourceCmd(srcPort, m_startCmd, 6000)) return false;
         qint64 elapsed = timer.elapsed();
-        qInfo().noquote() << QString("📊 [稳定分析] 工况[%1] 标准源准备就绪耗时: %2 ms").arg(pt.name).arg(elapsed);
+        qInfo().noquote() << QString("[稳定分析] 工况[%1] 标准源准备就绪耗时: %2 ms").arg(pt.name).arg(elapsed);
 
         // 稳定等待
         qDebug("正在等待标准源和仪表内部采样稳定...");
-        for (int i = 0; i < 40; ++i) {
+        for (int i = 0; i < 20; ++i) {
             if (!m_isRunning) return false;
             QThread::msleep(100);
         }
@@ -718,27 +1055,49 @@ bool CalibrationThread::runTestCategory(QSerialPort &srcPort, QSerialPort &meter
         aliveCount = 0;
         for (auto &meter : meters) {
             if (!meter.isEnabled || !meter.isAlive) continue;
-            // 动态匹配当前测试项的 UI 提示语
             QString statusMsg;
-                switch (catType) {
-                case Cat_V:             statusMsg = "电压电流"; break;
-                case Cat_ActivePower:   statusMsg = "有功功率"; break;
-                case Cat_ReactivePower: statusMsg = "无功功率"; break;
-                case Cat_ApparentPower: statusMsg = "视在功率"; break;
-                case Cat_PowerFactor:   statusMsg = "功率因数"; break;
+            bool isSigned = false;        // 默认不带符号
+            float currentDivider = 10.0f; // 默认除数 (放大10倍)
+
+            switch (catType) {
+                case Cat_V:
+                    statusMsg = "电压电流";
+                    break;
+                case Cat_ActivePower:
+                    statusMsg = "有功功率";
+                    isSigned = true;      // 有功功率可能为负（反向）
+                    currentDivider = 1000.0f; // 单片机放大了1000倍
+                    break;
+                case Cat_ReactivePower:
+                    statusMsg = "无功功率";
+                    isSigned = true;      // 无功功率容性为负
+                    currentDivider = 1000.0f;
+                    break;
+                case Cat_ApparentPower:
+                    statusMsg = "视在功率";
+                    currentDivider = 1000.0f;
+                    break;                // 视在功率 S = UI，无符号
+                case Cat_PowerFactor:
+                    statusMsg = "功率因数";
+                    isSigned = true;      // 功率因数容性为负
+                    currentDivider = 1000.0f; // 单片机放大了1000倍
+                    break;
                 case Cat_HarmonicV:
-                case Cat_HarmonicI:     statusMsg = "谐波"; break;
-                default:                statusMsg = "正在读取仪表..."; break;
+                case Cat_HarmonicI:
+                    statusMsg = "谐波";
+                    break;
+                default:
+                    statusMsg = "正在读取仪表...";
+                    break;
             }
+
             // 将当前的阶段和具体的工况名(如 220V, PF=0.5L)拼在一起显示
             emit updateErrorMeterStatus(meter.uiIndex, Error_Running, statusMsg + ": " + pt.name);
-
-            bool isSigned = (catType == Cat_ActivePower || catType == Cat_ReactivePower);
 
             QVector<float> rawData;
 
             // 读取仪表
-            if (readMeterData(meterPort, meter.address, startAddr, regCount, rawData, 10.0f, isSigned)) {
+            if (readMeterData(meterPort, meter.address, startAddr, regCount, rawData, currentDivider, isSigned)) {
                 aliveCount++;
                 // 根据类型分发处理
                 if (catType == Cat_V) {
@@ -749,6 +1108,8 @@ bool CalibrationThread::runTestCategory(QSerialPort &srcPort, QSerialPort &meter
                     processReactivePowerData(meter, pt, rawData);
                 } else if (catType == Cat_ApparentPower) {
                     processApparentPowerData(meter, pt, rawData);
+                } else if (catType == Cat_PowerFactor) {
+                    processPowerFactorData(meter, pt, rawData);
                 }
 
             } else {
@@ -939,13 +1300,78 @@ void CalibrationThread::onMeterPortError(QSerialPort::SerialPortError error)
     }
 }
 
+bool CalibrationThread::readMeterHarmonicData16(QSerialPort &port, quint8 addr, quint16 startReg, int count16, QVector<float> &outValues)
+{
+    int byteCount = count16 * 2; // 🌟 谐波每个数据只占 1 个 Modbus 寄存器 (2 个字节)
+    QByteArray frame;
+    frame.append(addr).append(0x03);
+    frame.append(startReg >> 8).append(startReg & 0xFF);
+    frame.append(count16 >> 8).append(count16 & 0xFF);
+    quint16 crc = calculateCRC(frame);
+    frame.append(crc & 0xFF).append(crc >> 8);
+
+    // 🌟 1. 打印 Tx (带上起始地址方便排查是读什么参数)
+    qInfo().noquote() << QString("[Tx 仪表%1 读谐波 0x%2]")
+                             .arg(addr, 2, 10, QChar('0'))
+                             .arg(startReg, 4, 16, QChar('0')).toUpper()
+                      << frame.toHex(' ').toUpper();
+    port.clear(QSerialPort::Input);
+    port.write(frame);
+
+    // 检查响应 (复用您写好的超时检查函数)
+    if (!checkMeterResponse(port, addr)) {
+        qWarning().noquote() << QString(" [Rx 仪表%1] 读取谐波无响应或超时！").arg(addr);
+        return false;
+    }
+
+    QByteArray rx = port.readAll();
+
+    // 🌟 2. 打印 Rx (接收到的原始字节)
+    qInfo().noquote() << QString("[Rx 仪表%1]")
+                             .arg(addr, 2, 10, QChar('0'))
+                      << rx.toHex(' ').toUpper();
+
+    // 🌟 3. 校验报文是否完整
+    if (rx.size() >= byteCount + 5 && rx[0] == addr && rx[1] == 0x03 && rx[2] == byteCount) {
+        outValues.clear();
+        QStringList parsedStrs; // 用于收集解析出的浮点数，方便打印
+
+        for (int i = 0; i < count16; ++i) {
+            int base = 3 + i * 2; // 🌟 16位数据，每次循环偏移 2 个字节
+
+            // 解析无符号 16位整数 (DataH << 8 | DataL)
+            quint16 rawVal = ((quint8)rx[base] << 8) | (quint8)rx[base+1];
+
+            // 还原为真实浮点数 (单片机放大了 100 倍，所以固定除以 100.0f)
+            float finalVal = rawVal / 100.0f;
+
+            outValues.append(finalVal);
+
+            // 🌟 格式化为 2 位小数打印，与单片机精度 0.01 保持绝对一致
+            parsedStrs << QString::number(finalVal, 'f', 3);
+        }
+
+        // 🌟 4. 打印成功解析的数据，一目了然！
+        qInfo().noquote() << QString(" 谐波解析成功 (%1个参数): ").arg(count16) + parsedStrs.join(", ");
+        return true;
+
+    } else {
+        // 🌟 5. 精准报错：告诉您为什么解析失败
+        qWarning().noquote() << QString(" [Rx 仪表%1] 谐波报文异常！期望总长>=%2 实际:%3 | 期望数据长:%4 实际(rx[2]):%5")
+                                    .arg(addr)
+                                    .arg(byteCount + 5).arg(rx.size())
+                                    .arg(byteCount).arg(rx.size() > 2 ? (int)rx[2] : -1);
+        return false;
+    }
+}
+
 // ---------------------------------------------------------
 // 底层控制协议与轮询引擎 (直接追加至 cpp 尾部)
 // ---------------------------------------------------------
 
 bool CalibrationThread::sendSourceCmd(QSerialPort &port, const QByteArray &cmdHex, int timeoutMs)
 {
-    // 🌟 1. 打印发给标准源的报文
+    // 打印发给标准源的报文
     qInfo().noquote() << "[Tx 标准源]" << cmdHex.toHex(' ').toUpper();
     port.write(cmdHex);
 
@@ -953,14 +1379,14 @@ bool CalibrationThread::sendSourceCmd(QSerialPort &port, const QByteArray &cmdHe
 
     QByteArray rx = port.readAll();
 
-    // 🌟 2. 打印标准源返回的报文
+    // 打印标准源返回的报文
     qInfo().noquote() << "[Rx 标准源]" << rx.toHex(' ').toUpper();
     QThread::msleep(100);
 
     if (rx == m_srcNack) {
         qCritical() << "❌ [拒绝执行] 标准源返回否定全帧(NACK)！指令被拒收。";
         emit srcMessage("标准源配置被拒(否定应答)", "error");
-        emit calirResult("标准源配置被拒(否定应答)", "error");
+        //emit calirResult("标准源配置被拒(否定应答)", "error");
         m_isRunning = false;
         return false;
     }
@@ -968,8 +1394,9 @@ bool CalibrationThread::sendSourceCmd(QSerialPort &port, const QByteArray &cmdHe
         return true; // 完美的 8 字节全帧匹配，放行
     }
 
+    qWarning()<<"标准源应答特征不匹配";
     emit srcMessage("标准源应答特征不匹配", "error");
-    emit calirResult("标准源应答特征不匹配", "error");
+    //emit calirResult("标准源应答特征不匹配", "error");
     m_isRunning = false;
     return false;
 }
@@ -1109,13 +1536,14 @@ bool CalibrationThread::handshakeSource(QSerialPort &port)
 }
 
 bool CalibrationThread::checkSourceResponse(QSerialPort &port, int timeoutMs) {
-    if (!port.waitForBytesWritten(200) || !port.waitForReadyRead(timeoutMs)) {
+    if (!port.waitForBytesWritten(3000) || !port.waitForReadyRead(timeoutMs)) {
         QSerialPort::SerialPortError err = port.error();
         if (err == QSerialPort::NoError) err = QSerialPort::TimeoutError;
 
         QString errStr = translateSerialError(err);
+        qWarning()<<"标准源指令发送或接收超时!";
         emit srcMessage("标准源中断: " + errStr, "error");
-        emit calirResult("标准源中断: " + errStr, "error");
+        //emit calirResult("标准源中断: " + errStr, "error");
         m_isRunning = false;
         return false;
     }
@@ -1175,7 +1603,7 @@ bool CalibrationThread::waitSourceStable(QSerialPort &port, float targetPF, int 
 
             if (rx == m_srcNack) {
                 qCritical() << "[拒绝读取] 标准源返回否定全帧，输出未就绪！";
-                emit calirResult("[拒绝读取] 标准源返回否定全帧，输出未就绪！", "error");
+                //emit calirResult("[拒绝读取] 标准源返回否定全帧，输出未就绪！", "error");
 
                 m_isRunning = false; return false;
             }
@@ -1216,7 +1644,7 @@ bool CalibrationThread::waitSourceStable(QSerialPort &port, float targetPF, int 
                 bool ipOk = okPhs(iap, tgtIpA) && okPhs(ibp, tgtIpB) && okPhs(icp, tgtIpC);
 
                 if (vOk && iOk && fOk && vpOk && ipOk) {
-                    qInfo() << ">>> [无死角校验通过] 你下发的 20 项参数已全量达标并稳定生效！";
+                    qInfo() << ">>> 20 项参数已全量达标并稳定生效！";
                     return true;
                 }
             } else {
@@ -1230,7 +1658,7 @@ bool CalibrationThread::waitSourceStable(QSerialPort &port, float targetPF, int 
 
     if (m_isRunning) {
         emit srcMessage("致命超时：标准源全量参数未能同时达标稳住！", "error");
-        emit calirResult("致命超时：标准源全量参数未能同时达标稳住！", "error");
+        //emit calirResult("致命超时：标准源全量参数未能同时达标稳住！", "error");
         m_isRunning = false;
     }
     return false;

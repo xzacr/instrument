@@ -23,6 +23,7 @@ qt_add_qml_module(appinstrument
         ui/Main.qml
         ui/Header.qml
         ui/ErrorCalc.qml
+        ui/ErrorCalcExample.qml
         ui/Calibration.qml
         SOURCES dump_handler.h instrument.h instrument.cpp log.cpp log.h
         RESOURCES ui/image/refresh.svg

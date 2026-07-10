@@ -38,6 +38,9 @@ ApplicationWindow {
         ErrorCalc{
             id: errorPage
         }
+        // ErrorCalcExample{
+        //     id: errorPageex
+        // }
     }
 
     TopMessage {
