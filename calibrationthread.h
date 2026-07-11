@@ -129,7 +129,7 @@ private:
 
     // 🌟 2. 专门处理电压和电流数据的函数
     void processVoltageCurrentData(Meter &meter, const TestPoint &pt, const QVector<float> &rawData);
-    void processActivePowerData(Meter &meter, const TestPoint &pt, const QVector<float> &rawData);
+    bool processActivePowerData(Meter &meter, const TestPoint &pt, const QVector<float> &pData, Row &row, QVariantList &qmlCells, bool isLastTry);
     void processReactivePowerData(Meter &meter, const TestPoint &pt, const QVector<float> &rawData);
     void processApparentPowerData(Meter &meter, const TestPoint &pt, const QVector<float> &rawData);
     void processPowerFactorData(Meter &meter, const TestPoint &pt, const QVector<float> &rawData);

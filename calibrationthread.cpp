@@ -540,11 +540,11 @@ bool CalibrationThread::runErrorCalcFlow(QSerialPort &srcPort, QSerialPort &mete
     //     return false;
     // }
 
-    // // 2. 执行有功功率测试
-    // qInfo() << "====== 2. 执行有功功率测试 ======";
-    // if (!runTestCategory(srcPort, meterPort, Cat_ActivePower, 0x300C, 4, m_activePowerTestPoints, meters, aliveCount)) {
-    //     return false;
-    // }
+    // 2. 执行有功功率测试
+    qInfo() << "====== 2. 执行有功功率测试 ======";
+    if (!runTestCategory(srcPort, meterPort, Cat_ActivePower, 0x300C, 4, m_activePowerTestPoints, meters, aliveCount)) {
+        return false;
+    }
 
     // // 3. 执行无功功率测试
     // qInfo() << "====== 3. 执行无功功率测试 ======";
@@ -565,9 +565,9 @@ bool CalibrationThread::runErrorCalcFlow(QSerialPort &srcPort, QSerialPort &mete
     // }
 
     // 6. 执行全段谐波测试 (双通道同测)
-    if (!runHarmonicsFlow(srcPort, meterPort, meters, aliveCount)) {
-        return false;
-    }
+    // if (!runHarmonicsFlow(srcPort, meterPort, meters, aliveCount)) {
+    //     return false;
+    // }
 
     if (!m_isRunning) return false;
 
@@ -897,28 +897,61 @@ void CalibrationThread::processVoltageCurrentData(Meter &meter, const TestPoint 
 }
 
 // =========================================================================
-// 专项处理：有功功率 (P)
+// 专项处理：有功功率 (P) - 具备单项成绩锁死与延迟落盘功能
 // =========================================================================
-void CalibrationThread::processActivePowerData(Meter &meter, const TestPoint &pt, const QVector<float> &pData)
+bool CalibrationThread::processActivePowerData(Meter &meter, const TestPoint &pt, const QVector<float> &pData, Row &row, QVariantList &qmlCells, bool isLastTry)
 {
     // 1. 理论值计算
     float stdP = pt.tgtV * pt.tgtI * qAbs(pt.tgtPF);
     float stdPTotal = stdP * 3.0f;
 
-    // 2. QML行装填
-    Row row; row.conditionName = pt.name; row.cells.resize(4);
-    QVariantList qmlCells;
+    // 🌟 2. 只有第一次进入时才初始化缓存结构（默认全判 Fail，占好位）
+    if (row.cells.isEmpty()) {
+        row.conditionName = pt.name;
+        row.cells.resize(4);
+        for(int i = 0; i < 4; i++) {
+            row.cells[i].isFail = true;
+            qmlCells.append(QVariantMap());
+        }
+    }
 
-    qmlCells << calcErrAndMakeMap(meter.address, "Pa", stdP, pData[0], row.cells[0],pt.limit,pt.name);
-    qmlCells << calcErrAndMakeMap(meter.address, "Pb", stdP, pData[1], row.cells[1],pt.limit,pt.name);
-    qmlCells << calcErrAndMakeMap(meter.address, "Pc", stdP, pData[2], row.cells[2],pt.limit,pt.name);
-    qmlCells << calcErrAndMakeMap(meter.address, "P总", stdPTotal, pData[3], row.cells[3],pt.limit,pt.name);
+    // 🌟 3. 闭包函数：针对单个格子进行“补考”更新
+    auto updateCell = [&](int idx, const QString &phase, float std, float meas, float limit) {
+        // 【核心保护】：如果这个格子之前已经及格了，绝对不覆盖它的好成绩，直接返回！
+        if (!row.cells[idx].isFail) return;
 
-    for (const auto& c : std::as_const(row.cells)) if (c.isFail) meter.hasFail = true;
-    meter.categories[Cat_ActivePower].rows.append(row);
-    emit appendErrorRow(meter.uiIndex, Cat_ActivePower, pt.name, qmlCells);
+        Cell tempCell;
+        QVariantMap tempMap = calcErrAndMakeMap(meter.address, phase, std, meas, tempCell, limit, pt.name);
+
+        // 【刷新条件】：如果这次及格了，或者已经是最后一次机会了（必须把报错数据留下展示）
+        if (!tempCell.isFail || isLastTry) {
+            row.cells[idx] = tempCell;
+            qmlCells[idx] = tempMap;
+        }
+    };
+
+    // 4. 对 4 个格子分别进行补考尝试
+    updateCell(0, "Pa", stdP, pData[0], pt.limit);
+    updateCell(1, "Pb", stdP, pData[1], pt.limit);
+    updateCell(2, "Pc", stdP, pData[2], pt.limit);
+    updateCell(3, "P总", stdPTotal, pData[3], pt.limit);
+
+    // 🌟 5. 裁判环节：检查这一行这 4 个格子是否全部凑齐绿灯了？
+    bool isRowPass = true;
+    for (const auto& c : std::as_const(row.cells)) {
+        if (c.isFail) { isRowPass = false; break; }
+    }
+
+    // 🌟 6. 拦截器：全绿灯，或最后一次机会用完，才真正落盘并推给 UI
+    if (isRowPass || isLastTry) {
+        if (!isRowPass) meter.hasFail = true; // 3次都没过，给表计判死刑
+        meter.categories[Cat_ActivePower].rows.append(row);
+        emit appendErrorRow(meter.uiIndex, Cat_ActivePower, pt.name, qmlCells);
+    }
+
+    // 7. 返回这行是否已及格，好让主循环知道这块表不用再重测了
+    return isRowPass;
 }
-
 // =========================================================================
 // 专项处理：无功功率 (Q)
 // =========================================================================
@@ -995,7 +1028,10 @@ void CalibrationThread::processPowerFactorData(Meter &meter, const TestPoint &pt
     emit appendErrorRow(meter.uiIndex, Cat_PowerFactor, pt.name, qmlCells);
 }
 
-bool CalibrationThread::runTestCategory(QSerialPort &srcPort, QSerialPort &meterPort, CategoryType catType, uint16_t startAddr, int regCount, const QList<TestPoint> &testPoints, QList<Meter> &meters,int &aliveCount)
+// =========================================================================
+// 主测试流程：执行当前分类下的所有测试点 (支持打地鼠式单表最多3次重发)
+// =========================================================================
+bool CalibrationThread::runTestCategory(QSerialPort &srcPort, QSerialPort &meterPort, CategoryType catType, uint16_t startAddr, int regCount, const QList<TestPoint> &testPoints, QList<Meter> &meters, int &aliveCount)
 {
     // 1. 确定本次的模式码
     uint16_t writeMode = 0;
@@ -1011,28 +1047,26 @@ bool CalibrationThread::runTestCategory(QSerialPort &srcPort, QSerialPort &meter
     default:                writeMode = 0; break;
     }
 
-    // 2. 执行 [模式初始化]，
+    // 2. 执行 [模式初始化]
     qInfo() << ">>> 开始批量执行 [模式初始化]，模式码:" << writeMode;
     aliveCount = 0;
     for (auto &meter : meters) {
-        if (!meter.isAlive || !meter.isEnabled) continue; // 必须是存活的表才操作
+        if (!meter.isAlive || !meter.isEnabled) continue;
 
         writeMeterReg(meterPort, meter.address, m_regWriteProtect, writeMode);
-        // 校验模式是否写入成功
         if (waitMeterState(meterPort, meter.address, m_regWriteProtect, writeMode, 2000)) {
-            aliveCount++; // 只有写入成功的表，才算活着，才进入下一步测试
+            aliveCount++;
         } else {
-            // 写入失败
             meter.isAlive = false;
             emit updateErrorMeterStatus(meter.uiIndex, Error_Timeout, "模式设置超时");
         }
     }
 
-    // 防呆：如果全军覆没，立刻终止，绝不跑空
     if (aliveCount == 0) {
         emit showTopMessage("全部仪表模式设置失败，测试终止", "error");
         return false;
     }
+
     QElapsedTimer timer;
     for (int step = 0; step < testPoints.size(); ++step) {
         TestPoint pt = testPoints[step];
@@ -1046,82 +1080,117 @@ bool CalibrationThread::runTestCategory(QSerialPort &srcPort, QSerialPort &meter
 
         // 稳定等待
         qDebug("正在等待标准源和仪表内部采样稳定...");
-        for (int i = 0; i < 20; ++i) {
+        for (int i = 0; i < 50; ++i) {
             if (!m_isRunning) return false;
             QThread::msleep(100);
         }
 
-        // 读仪表 & 分发数据
-        aliveCount = 0;
-        for (auto &meter : meters) {
-            if (!meter.isEnabled || !meter.isAlive) continue;
-            QString statusMsg;
-            bool isSigned = false;        // 默认不带符号
-            float currentDivider = 10.0f; // 默认除数 (放大10倍)
+        // ========================================================
+        // 🌟 新增：跨 3 次循环的“缓存背包”
+        // ========================================================
+        QMap<int, Row> rowCacheMap;
+        QMap<int, QVariantList> qmlCacheMap;
+        QMap<int, bool> meterPassedMap; // 记录某块表是否已经拼图成功
 
-            switch (catType) {
+        // 🌟 开始最多 3 次的重试循环
+        for (int tryIdx = 1; tryIdx <= 3; ++tryIdx) {
+            bool isLastTry = (tryIdx == 3);
+
+            if (tryIdx > 1) {
+                qDebug("第 %d 次补充读取误差...", tryIdx);
+                QThread::msleep(1500); // 重读前给仪表一点时间刷新采样
+            }
+
+            for (auto &meter : meters) {
+                if (!meter.isEnabled || !meter.isAlive) continue;
+
+                // 🌟 如果这块表之前已经考及格了，直接跳过免考！
+                if (meterPassedMap[meter.uiIndex]) continue;
+
+                QString statusMsg;
+                bool isSigned = false;
+                float currentDivider = 10.0f;
+
+                switch (catType) {
                 case Cat_V:
-                    statusMsg = "电压电流";
-                    break;
+                    statusMsg = "电压电流"; break;
                 case Cat_ActivePower:
-                    statusMsg = "有功功率";
-                    isSigned = true;      // 有功功率可能为负（反向）
-                    currentDivider = 1000.0f; // 单片机放大了1000倍
-                    break;
+                    statusMsg = "有功功率"; isSigned = true; currentDivider = 1000.0f; break;
                 case Cat_ReactivePower:
-                    statusMsg = "无功功率";
-                    isSigned = true;      // 无功功率容性为负
-                    currentDivider = 1000.0f;
-                    break;
+                    statusMsg = "无功功率"; isSigned = true; currentDivider = 1000.0f; break;
                 case Cat_ApparentPower:
-                    statusMsg = "视在功率";
-                    currentDivider = 1000.0f;
-                    break;                // 视在功率 S = UI，无符号
+                    statusMsg = "视在功率"; currentDivider = 1000.0f; break;
                 case Cat_PowerFactor:
-                    statusMsg = "功率因数";
-                    isSigned = true;      // 功率因数容性为负
-                    currentDivider = 1000.0f; // 单片机放大了1000倍
-                    break;
+                    statusMsg = "功率因数"; isSigned = true; currentDivider = 1000.0f; break;
                 case Cat_HarmonicV:
                 case Cat_HarmonicI:
-                    statusMsg = "谐波";
-                    break;
+                    statusMsg = "谐波"; break;
                 default:
-                    statusMsg = "正在读取仪表...";
-                    break;
-            }
-
-            // 将当前的阶段和具体的工况名(如 220V, PF=0.5L)拼在一起显示
-            emit updateErrorMeterStatus(meter.uiIndex, Error_Running, statusMsg + ": " + pt.name);
-
-            QVector<float> rawData;
-
-            // 读取仪表
-            if (readMeterData(meterPort, meter.address, startAddr, regCount, rawData, currentDivider, isSigned)) {
-                aliveCount++;
-                // 根据类型分发处理
-                if (catType == Cat_V) {
-                    processVoltageCurrentData(meter, pt, rawData);
-                } else if (catType == Cat_ActivePower) {
-                    processActivePowerData(meter, pt, rawData);
-                } else if (catType == Cat_ReactivePower) {
-                    processReactivePowerData(meter, pt, rawData);
-                } else if (catType == Cat_ApparentPower) {
-                    processApparentPowerData(meter, pt, rawData);
-                } else if (catType == Cat_PowerFactor) {
-                    processPowerFactorData(meter, pt, rawData);
+                    statusMsg = "正在读取仪表..."; break;
                 }
 
-            } else {
-                meter.isAlive = false;
-                emit updateErrorMeterStatus(meter.uiIndex, Error_Timeout, "通讯失败");
+                // 🌟 更新 UI：带上当前是第几次读取
+                emit updateErrorMeterStatus(meter.uiIndex, Error_Running, statusMsg + QString(": %1 (第%2次)").arg(pt.name).arg(tryIdx));
+
+                QVector<float> rawData;
+
+                // 读取仪表
+                if (readMeterData(meterPort, meter.address, startAddr, regCount, rawData, currentDivider, isSigned)) {
+                    bool isPass = false;
+
+                    // 🌟 根据类型分发处理，带上它的专属背包缓存
+                    if (catType == Cat_ActivePower) {
+                        isPass = processActivePowerData(meter, pt, rawData, rowCacheMap[meter.uiIndex], qmlCacheMap[meter.uiIndex], isLastTry);
+                    }
+                    // 这里同理添加您其他参量的处理函数：
+                    // else if (catType == Cat_V) {
+                    //     isPass = processVoltageCurrentData(meter, pt, rawData, rowCacheMap[meter.uiIndex], qmlCacheMap[meter.uiIndex], isLastTry);
+                    // }
+                    // ...
+
+                    if (isPass) {
+                        meterPassedMap[meter.uiIndex] = true; // 这块表凑齐满分了，标记通关
+                    }
+
+                } else {
+                    // 🌟 读失败处理：只有最后一次重试还读不出来，才真正判掉线
+                    if (isLastTry) {
+                        meter.isAlive = false;
+                        emit updateErrorMeterStatus(meter.uiIndex, Error_Timeout, "通讯失败");
+                    }
+                }
+            } // end for(meters)
+
+            bool allPassed = true;
+            for (auto &meter : meters) {
+                // 只要有一块表还活着、被勾选了，且还没考及格，就说明全班还没满分
+                if (meter.isEnabled && meter.isAlive && !meterPassedMap[meter.uiIndex]) {
+                    allPassed = false;
+                    break;
+                }
             }
+            // 🌟 提前结束条件：如果本点所有活着的表均已及格，无需继续后面的重读
+            if (allPassed) {
+                qDebug("本测试点所有仪表均已及格，提前进入下一测试工况！");
+                break;
+            }
+            if (!m_isRunning) return false;
+        } // end for(tryIdx)
+
+        // ========================================================
+        // 盘点：经历完 3 轮折磨后，还有几块表活着？
+        // ========================================================
+        aliveCount = 0;
+        for (auto &meter : meters) {
+            if (meter.isEnabled && meter.isAlive) aliveCount++;
         }
+
         if (aliveCount == 0) {
-            emit showTopMessage("仪表全部失败，测试终止", "error");
+            emit showTopMessage("仪表全部失败掉线，测试终止", "error");
             return false;
         }
-    }
+    } // end for(testPoints)
+
     return true;
 }
 
