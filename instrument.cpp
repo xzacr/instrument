@@ -13,6 +13,7 @@ Instrument::Instrument(QObject *parent) : QObject{parent}
     connect(m_calibThread, &QThread::finished, this, &Instrument::isCalibratingChanged);
     connect(m_calibThread, &CalibrationThread::updateErrorMeterStatus,this, &Instrument::updateErrorMeterStatus);
     connect(m_calibThread, &CalibrationThread::appendErrorRow,this, &Instrument::appendErrorRow);
+    connect(m_calibThread, &CalibrationThread::showResultPopup,this, &Instrument::showResultPopup);
     refreshPorts(); // 启动时获取一次串口列表
 }
 

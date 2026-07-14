@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
+import QtCore // 🌟 Qt 6 官方标准导入
 
 Item {
     id: calibrationPage
@@ -83,6 +84,7 @@ Item {
             "meters": meterConfigs
         }
     }
+
     // 绘制全局高级灰底色
     Rectangle {
         anchors.fill: parent
@@ -90,15 +92,63 @@ Item {
         z: -1
     }
 
+    // =========================================================================
+    // 🌟 官方推荐的标准解耦方案：两个 Settings 指向同一 INI 文件，分组管理！
+    // =========================================================================
+
+    // 分组 1：串口通信配置 -> 对应 ini 文件中的 [SerialPortConfig] 段
+    Settings {
+        id: serialSettings
+        location: "file:///" +appDirPath + "/506787841.ini"
+        category: "SerialPortConfig"
+
+        property string srcPort: ""
+        property int srcBaudIndex: 5
+        property string meterPort: ""
+        property int meterBaudIndex: 2
+    }
+
+    // 分组 2：仪表批量配置 -> 对应 ini 文件中的 [MetersConfig] 段
+    Settings {
+        id: meterSettings
+        location: "file:///" +appDirPath + "/506787841.ini"
+        category: "MetersConfig"
+
+        // 默认初值（未手动更改前不会写盘，一旦触发修改，立刻在 INI 里生成 [MetersConfig]！）
+        property bool meter_0_enabled: true
+        property bool meter_1_enabled: true
+        property bool meter_2_enabled: true
+        property bool meter_3_enabled: true
+        property bool meter_4_enabled: true
+
+        property int meter_0_addr: 1
+        property int meter_1_addr: 2
+        property int meter_2_addr: 3
+        property int meter_3_addr: 4
+        property int meter_4_addr: 5
+    }
+
+    // 串口名称初始化/刷新还原逻辑
+    function restoreSerialSelection() {
+        if (serialSettings.srcPort !== "") {
+            let idx = srcport.find(serialSettings.srcPort);
+            if (idx !== -1) srcport.currentIndex = idx;
+        }
+        if (serialSettings.meterPort !== "") {
+            let idx = meterport.find(serialSettings.meterPort);
+            if (idx !== -1) meterport.currentIndex = idx;
+        }
+    }
+
+    Component.onCompleted: restoreSerialSelection()
+
     Connections {
         target: ins
 
-        // 全局提示
         function onShowTopMsg(msg, type) {
             topMsg.display(msg, type)
         }
 
-        // 接收步骤状态更新
         function onMeterStepStatusChanged(meterIndex, stepIndex, status) {
             let meterCard = meterRepeater.itemAt(meterIndex)
             if (meterCard) {
@@ -114,6 +164,10 @@ Item {
                 srctext.color = themeColor
             }
         }
+
+        function onAvailablePortsChanged() {
+            restoreSerialSelection();
+        }
     }
 
     ColumnLayout {
@@ -122,7 +176,7 @@ Item {
         spacing: 20
 
         // ==========================================
-        // 1. 顶部：通信配置区 & 全局控制 (融合进一张大卡片)
+        // 1. 顶部：通信配置区 & 全局控制
         // ==========================================
         Rectangle {
             Layout.fillWidth: true
@@ -159,6 +213,9 @@ Item {
                             Layout.preferredWidth: 160
                             enabled: !ins.isCalibrating
                             font.pixelSize: 18
+                            onActivated: {
+                                serialSettings.srcPort = currentText;
+                            }
                         }
                         ToolButton {
                             id: refreshBtn
@@ -183,10 +240,15 @@ Item {
                         ComboBox {
                             id: srcbaud
                             model: [2400,4800,9600,19200,28800,38400,56700,115200]
-                            currentIndex: 5
                             Layout.preferredWidth: 120
                             enabled: !ins.isCalibrating
                             font.pixelSize: 18
+
+                            // 🌟 绑定初值，修改立刻写盘
+                            currentIndex: serialSettings.srcBaudIndex
+                            onActivated: {
+                                serialSettings.srcBaudIndex = currentIndex;
+                            }
                         }
                         Item { Layout.fillWidth: true } // 左侧弹簧
                     }
@@ -221,6 +283,9 @@ Item {
                             Layout.preferredWidth: 160
                             enabled: !ins.isCalibrating
                             font.pixelSize: 18
+                            onActivated: {
+                                serialSettings.meterPort = currentText;
+                            }
                         }
                         ToolButton {
                             id: refreshBtn1
@@ -245,10 +310,15 @@ Item {
                         ComboBox {
                             id: meterbaud
                             model: [2400,4800,9600,19200,28800,38400,56700,115200]
-                            currentIndex: 2
                             Layout.preferredWidth: 120
                             enabled: !ins.isCalibrating
                             font.pixelSize: 18
+
+                            // 🌟 绑定初值，修改立刻写盘
+                            currentIndex: serialSettings.meterBaudIndex
+                            onActivated: {
+                                serialSettings.meterBaudIndex = currentIndex;
+                            }
                         }
                         Item { Layout.fillWidth: true } // 右侧弹簧
                     }
@@ -257,19 +327,19 @@ Item {
         }
 
         // ==========================================
-        // 2. 中部：状态反馈与一键启动区 (重构成一体化高级控制条)
+        // 2. 中部：状态反馈与一键启动区
         // ==========================================
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 80
-            color: cardBg              // 整个控制条铺满白底
+            color: cardBg
             radius: 8
             border.color: borderColor
             border.width: 1
 
             RowLayout {
                 anchors.fill: parent
-                anchors.margins: 10   // 上下左右留出 10px 边距，内部按钮高度自动变为 60px
+                anchors.margins: 10
                 anchors.leftMargin: 20
                 spacing: 20
 
@@ -351,7 +421,7 @@ Item {
         }
 
         // ==========================================
-        // 5个仪表看板
+        // 3. 5个仪表看板
         // ==========================================
         RowLayout {
             Layout.fillWidth: true
@@ -414,7 +484,13 @@ Item {
                                 font.bold: true
                                 font.pixelSize: 14
                                 enabled: !ins.isCalibrating
-                                checked: true
+
+                                checked: meterSettings["meter_" + index + "_enabled"]
+
+                                // 实时保存
+                                onCheckedChanged: {
+                                    meterSettings["meter_" + index + "_enabled"] = checked;
+                                }
                             }
                         }
 
@@ -427,13 +503,20 @@ Item {
                             Label { text: "地址:"; color: textSub; font.pixelSize: 15 }
                             SpinBox {
                                 id: addrInput
-                                value: index + 1
                                 from: 1; to: 255
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 38
                                 enabled: enableCheck.checked && !ins.isCalibrating
                                 editable: true
                                 font.pixelSize: 18
+
+                                // 🌟 核心改造 2：地址初值直接绑定配置中枢！绝不要写 value: index + 1！
+                                value: meterSettings["meter_" + index + "_addr"]
+
+                                // 实时保存
+                                onValueChanged: {
+                                    meterSettings["meter_" + index + "_addr"] = value;
+                                }
                             }
                             Label { text: "SN码:"; color: textSub; font.pixelSize: 15 }
                             TextField {

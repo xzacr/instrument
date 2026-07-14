@@ -29,6 +29,9 @@ qt_add_qml_module(appinstrument
         RESOURCES ui/image/refresh.svg
         QML_FILES ui/TopMessage.qml
         SOURCES calibrationthread.h calibrationthread.cpp
+        QML_FILES
+        QML_FILES ui/StatusCard.qml
+        QML_FILES ui/ResultPopup.qml
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.

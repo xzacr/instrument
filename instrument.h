@@ -33,6 +33,7 @@ signals:
     void srcMessage(const QString &msg, const QString &type);
     void updateErrorMeterStatus(int meterIndex, int statusEnum, const QString &desc);
     void appendErrorRow(int meterIndex, int categoryIndex, const QString &rowName, const QVariantList &rowCells);
+    void showResultPopup(QString title, QString msg, QString type);
 
 private:
     CalibrationThread *m_calibThread;

@@ -21,6 +21,7 @@ ApplicationWindow {
     }
 
     StackLayout {
+        visible: true
         anchors.fill: parent
         anchors.margins: 16
         currentIndex: tabBar.currentIndex
@@ -77,6 +78,24 @@ ApplicationWindow {
             console.log("topMsg.display msg =",msg,"msgType =",msgType)
         }
     }
+
+
+    ResultPopup {
+        id: resultPopup
+    }
+    Connections {
+        target: ins // 替换为您 C++ 后台线程在 QML 中的实例化上下文名称
+
+        function onShowResultPopup(title, msg, type) {
+            resultPopup.show(title, msg, type)
+        }
+    }
+    // FatalErrorPopup {
+    //     id: fatalErrorPopup
+    //     Component.onCompleted: {
+    //         fire("标准源故障!")
+    //     }
+    // }
 }
 // Button{
 //     width: 300

@@ -23,7 +23,9 @@ Item {
         "视在功率", "功率因数", "谐波电压", "谐波电流"
     ]
 
-    // 表头列名：需要跟 C++ 下发的单元格数量严格对应
+    // =====================================================================
+    // 🌟 1. 表头列名映射 (需要和 C++ rowCells 下发的数量严格匹配)
+    // =====================================================================
     function getColumns(cat) {
         if (cat === 0) return ["Ua", "Ub", "Uc", "Uab", "Ubc", "Uac"]
         if (cat === 1) return ["Ia", "Ib", "Ic"]
@@ -36,12 +38,111 @@ Item {
         return []
     }
 
-    // 初始化/清空所有数据的函数
+    // =====================================================================
+    // 🌟 2. 固定量产测试大纲表头 (必须与 C++ 初始化里的 string name 对应)
+    // =====================================================================
+    function getRows(cat) {
+        // --- 0: 电压 / 1: 电流 ---
+        if (cat === 0 || cat === 1) {
+            return [
+                "44V,  0.5A",
+                "220V, 5.0A",
+                "264V, 6.0A"
+            ];
+        }
+        // --- 2: 有功功率 (51个点) ---
+        if (cat === 2) {
+            return [
+                // 第一组：176V
+                "176V, PF=1.0, 0.05A", "176V, PF=1.0, 0.20A", "176V, PF=1.0, 0.25A", "176V, PF=1.0, 5.00A", "176V, PF=1.0, 6.00A",
+                "176V, PF=0.5L, 0.10A", "176V, PF=0.5L, 0.25A", "176V, PF=0.5L, 0.40A", "176V, PF=0.5L, 0.50A", "176V, PF=0.5L, 5.00A", "176V, PF=0.5L, 6.00A",
+                "176V, PF=0.8C, 0.10A", "176V, PF=0.8C, 0.25A", "176V, PF=0.8C, 0.40A", "176V, PF=0.8C, 0.50A", "176V, PF=0.8C, 5.00A", "176V, PF=0.8C, 6.00A",
+                // 第二组：220V
+                "220V, PF=1.0, 0.05A", "220V, PF=1.0, 0.20A", "220V, PF=1.0, 0.25A", "220V, PF=1.0, 5.00A", "220V, PF=1.0, 6.00A",
+                "220V, PF=0.5L, 0.10A", "220V, PF=0.5L, 0.25A", "220V, PF=0.5L, 0.40A", "220V, PF=0.5L, 0.50A", "220V, PF=0.5L, 5.00A", "220V, PF=0.5L, 6.00A",
+                "220V, PF=0.8C, 0.10A", "220V, PF=0.8C, 0.25A", "220V, PF=0.8C, 0.40A", "220V, PF=0.8C, 0.50A", "220V, PF=0.8C, 5.00A", "220V, PF=0.8C, 6.00A",
+                // 第三组：264V
+                "264V, PF=1.0, 0.05A", "264V, PF=1.0, 0.20A", "264V, PF=1.0, 0.25A", "264V, PF=1.0, 5.00A", "264V, PF=1.0, 6.00A",
+                "264V, PF=0.5L, 0.10A", "264V, PF=0.5L, 0.25A", "264V, PF=0.5L, 0.40A", "264V, PF=0.5L, 0.50A", "264V, PF=0.5L, 5.00A", "264V, PF=0.5L, 6.00A",
+                "264V, PF=0.8C, 0.10A", "264V, PF=0.8C, 0.25A", "264V, PF=0.8C, 0.40A", "264V, PF=0.8C, 0.50A", "264V, PF=0.8C, 5.00A", "264V, PF=0.8C, 6.00A"
+            ];
+        }
+        // --- 3: 无功功率 (39个点) ---
+        if (cat === 3) {
+            return [
+                // 第一组：176V
+                "176V, PF=0, 0.1A", "176V, PF=0, 0.2A", "176V, PF=0, 0.25A", "176V, PF=0, 5.0A", "176V, PF=0, 6.0A",
+                "176V, PF=0.866, 0.25A", "176V, PF=0.866, 0.4A", "176V, PF=0.866, 0.5A", "176V, PF=0.866, 5.0A", "176V, PF=0.866, 6.0A",
+                "176V, PF=0.968, 0.5A", "176V, PF=0.968, 5.0A", "176V, PF=0.968, 6.0A",
+                // 第二组：220V
+                "220V, PF=0, 0.1A", "220V, PF=0, 0.2A", "220V, PF=0, 0.25A", "220V, PF=0, 5.0A", "220V, PF=0, 6.0A",
+                "220V, PF=0.866, 0.25A", "220V, PF=0.866, 0.4A", "220V, PF=0.866, 0.5A", "220V, PF=0.866, 5.0A", "220V, PF=0.866, 6.0A",
+                "220V, PF=0.968, 0.5A", "220V, PF=0.968, 5.0A", "220V, PF=0.968, 6.0A",
+                // 第三组：264V
+                "264V, PF=0, 0.1A", "264V, PF=0, 0.2A", "264V, PF=0, 0.25A", "264V, PF=0, 5.0A", "264V, PF=0, 6.0A",
+                "264V, PF=0.866, 0.25A", "264V, PF=0.866, 0.4A", "264V, PF=0.866, 0.5A", "264V, PF=0.866, 5.0A", "264V, PF=0.866, 6.0A",
+                "264V, PF=0.968, 0.5A", "264V, PF=0.968, 5.0A", "264V, PF=0.968, 6.0A"
+            ];
+        }
+        // --- 4: 视在功率 (15个点) ---
+        if (cat === 4) {
+            return [
+                "176V, PF=1, 0.1A", "176V, PF=1, 0.2A", "176V, PF=1, 0.3A", "176V, PF=1, 5.0A", "176V, PF=1, 6.0A",
+                "220V, PF=1, 0.1A", "220V, PF=1, 0.2A", "220V, PF=1, 0.3A", "220V, PF=1, 5.0A", "220V, PF=1, 6.0A",
+                "264V, PF=1, 0.1A", "264V, PF=1, 0.2A", "264V, PF=1, 0.3A", "264V, PF=1, 5.0A", "264V, PF=1, 6.0A"
+            ];
+        }
+        // --- 5: 功率因数 (36个点) ---
+        if (cat === 5) {
+            return [
+                // 第一组：110V
+                "110V, PF=0.5L, 0.5A", "110V, PF=0.5L, 2.5A", "110V, PF=0.5L, 5.0A", "110V, PF=0.5L, 6.0A",
+                "110V, PF=1.0, 0.5A", "110V, PF=1.0, 2.5A", "110V, PF=1.0, 5.0A", "110V, PF=1.0, 6.0A",
+                "110V, PF=0.8C, 0.5A", "110V, PF=0.8C, 2.5A", "110V, PF=0.8C, 5.0A", "110V, PF=0.8C, 6.0A",
+                // 第二组：220V
+                "220V, PF=0.5L, 0.5A", "220V, PF=0.5L, 2.5A", "220V, PF=0.5L, 5.0A", "220V, PF=0.5L, 6.0A",
+                "220V, PF=1.0, 0.5A", "220V, PF=1.0, 2.5A", "220V, PF=1.0, 5.0A", "220V, PF=1.0, 6.0A",
+                "220V, PF=0.8C, 0.5A", "220V, PF=0.8C, 2.5A", "220V, PF=0.8C, 5.0A", "220V, PF=0.8C, 6.0A",
+                // 第三组：264V
+                "264V, PF=0.5L, 0.5A", "264V, PF=0.5L, 2.5A", "264V, PF=0.5L, 5.0A", "264V, PF=0.5L, 6.0A",
+                "264V, PF=1.0, 0.5A", "264V, PF=1.0, 2.5A", "264V, PF=1.0, 5.0A", "264V, PF=1.0, 6.0A",
+                "264V, PF=0.8C, 0.5A", "264V, PF=0.8C, 2.5A", "264V, PF=0.8C, 5.0A", "264V, PF=0.8C, 6.0A"
+            ];
+        }
+        // --- 6: 谐波电压 / 7: 谐波电流 (预留) ---
+        if (cat === 6 || cat === 7) {
+            return [
+                "220V/5A, 2次谐波", "220V/5A, 3次谐波", "220V/5A, 5次谐波",
+                "220V/5A, 7次谐波", "220V/5A, 11次谐波", "220V/5A, 13次谐波"
+            ];
+        }
+        return [];
+    }
+
+    // =====================================================================
+    // 🌟 3. 全量预加载大纲（默认赋 '-'）
+    // =====================================================================
     function clearAllData() {
         let fresh = [];
         for (let i = 0; i < 5; i++) {
             let cats = [];
-            for (let c = 0; c < 8; c++) cats.push([]);
+            for (let c = 0; c < 8; c++) {
+                let catRows = [];
+                let rowNames = getRows(c);
+                let colCount = getColumns(c).length;
+
+                for (let r = 0; r < rowNames.length; r++) {
+                    let emptyCells = [];
+                    for (let col = 0; col < colCount; col++) {
+                        emptyCells.push({ "errStr": "-", "isFail": false });
+                    }
+                    catRows.push({
+                        "header": rowNames[r],
+                        "cells": emptyCells
+                    });
+                }
+                cats.push(catRows);
+            }
             fresh.push(cats);
 
             // 重置顶部卡片状态
@@ -55,7 +156,7 @@ Item {
     // 触发 ListView 刷新
     function updateView() {
         if (meterDataStore.length > 0) {
-            // 通过 concat 浅拷贝生成新数组，强制 QML 刷新 ListView
+            // 浅拷贝触发 QML 视图数据变更信号
             currentTableModel = [].concat(meterDataStore[selectedMeterIndex][selectedCategory]);
         }
     }
@@ -68,69 +169,67 @@ Item {
     Connections {
         target: ins
 
-        // 监听测试启动状态，一旦启动，直接清空旧图表
         function onIsCalibratingChanged() {
             if (ins.isCalibrating) {
                 clearAllData();
             }
         }
 
-        // 接收顶部 5 个卡片的状态更新
         function onUpdateErrorMeterStatus(meterIndex, statusEnum, desc) {
             let statusStr = "IDLE";
             if (statusEnum === 0) statusStr = "IDLE";
             else if (statusEnum === 1) statusStr = "PASS";
             else if (statusEnum === 2) statusStr = "FAIL";
             else if (statusEnum === 3) statusStr = "RUNNING";
-            else if (statusEnum === 4) statusStr = "TIMEOUT"; //     解析新增的掉线状态
+            else if (statusEnum === 4) statusStr = "TIMEOUT";
+            else if (statusEnum === 4) statusStr = "STOP";
 
             meterStateModel.setProperty(meterIndex, "status", statusStr);
             meterStateModel.setProperty(meterIndex, "desc", desc);
         }
 
-        // 接收底层计算好的动态行数据
+        // =====================================================================
+        // 🌟 4. 极致精简：原地精确替换 + 智能位置滚动
+        // =====================================================================
         function onAppendErrorRow(meterIndex, categoryIndex, rowName, rowCells) {
-            // 🌟 1. 在更新数据前，先保存滚动条状态 (只在当前视图一致时才处理)
-            let isAtBottom = false;
-            let oldContentY = 0;
-            let isCurrentView = (meterIndex === selectedMeterIndex && categoryIndex === selectedCategory);
+            //console.log("onAppendErrorRowwwwwwwwwwwwwwwwwwwwwwwwwwww")
+            let data = meterDataStore;
+            let catRows = data[meterIndex][categoryIndex];
+            let foundIndex = -1;
 
-            if (isCurrentView) {
-                oldContentY = resultListView.contentY;
-                // 如果内容高度已经超过了可视高度，才需要严格计算是否在底部
-                if (resultListView.contentHeight > resultListView.height) {
-                    isAtBottom = (resultListView.contentY >= resultListView.contentHeight - resultListView.height - 10);
-                } else {
-                    // 还没填满一页时，默认当做在底部，保持追踪
-                    isAtBottom = true;
+            // --- 核心：严格通过名字精准替换，哪怕顺序变了也不会写错 ---
+            for (let r = 0; r < catRows.length; r++) {
+                if (catRows[r].header === rowName) {
+                    catRows[r].cells = rowCells;
+                    foundIndex = r;
+                    break;
                 }
             }
 
-            // ==========================================
-            // 2. 执行您原有的数据更新逻辑
-            let data = meterDataStore;
-            data[meterIndex][categoryIndex].push({
-                "header": rowName,
-                "cells": rowCells
-            });
+            // 防呆保护：如果下发的工况名在大纲里找不到，直接末尾追加
+            if (foundIndex === -1) {
+                catRows.push({ "header": rowName, "cells": rowCells });
+                foundIndex = catRows.length - 1;
+            }
+
             meterDataStore = data;
 
-            // ==========================================
-            // 3. 刷新表格并执行智能滚动
-            if (isCurrentView) {
-                updateView(); // 触发界面重绘
+            if (meterIndex === selectedMeterIndex) {
+                // 1. 智能对偶归并：防止成对数据导致标签前后疯狂闪跳
+                let targetCategory = categoryIndex;
+                if (categoryIndex === 1) targetCategory = 0; // 收到电流(1) -> 稳在“电压(0)”标签
+                if (categoryIndex === 7) targetCategory = 6; // 收到谐波电流(7) -> 稳在“谐波电压(6)”标签
 
-                // 必须用 Qt.callLater，等 updateView 把新 UI 渲染出来后再调滚动条
+                // 2. 如果正在测试的分类和当前看的不一样，自动把标签切过去！
+                if (selectedCategory !== targetCategory) {
+                    selectedCategory = targetCategory; // 这一步会自动触发 QML 视图重绘
+                } else {
+                    updateView(); // 标签没变，正常手动刷新当前表格的值
+                }
+
+                // 3. 延迟一帧让视图将新选中的标签表格渲染完毕，再精准对准到中间！
                 Qt.callLater(function() {
-                    if (isAtBottom) {
-                        // 【模式 A】：自动向下追踪最新数据
-                        resultListView.positionViewAtEnd();
-                    } else {
-                        // 【模式 B】：锁死在您正在看的那行历史数据
-                        if (resultListView.contentHeight > resultListView.height) {
-                            resultListView.contentY = oldContentY;
-                        }
-                    }
+                    resultListView.positionViewAtIndex(foundIndex, ListView.Center);
                 });
             }
         }
@@ -168,7 +267,8 @@ Item {
 
                     property color bgColor: status === "PASS" ? "#4CAF50" :
                                             status === "FAIL" ? "#F44336" :
-                                            status === "TIMEOUT" ? "#F57C00" : // 经典警告橙黄
+                                            status === "TIMEOUT" ? "#F57C00" :
+                                            status === "STOP" ? "#F57C00" :
                                             status === "RUNNING" ? "#2196F3" : "#9E9E9E"
 
                     property bool isSelected: selectedMeterIndex === index
@@ -268,6 +368,7 @@ Item {
                                         id: stateIcon
                                         text: status === "FAIL" ? "❗" :
                                               status === "TIMEOUT" ? "⚠" :
+                                              status === "STOP" ? "⚠" :
                                               status === "PASS" ? "✔" :
                                               status === "RUNNING" ? "⚙" : "○"
                                         color: "white"
@@ -281,7 +382,7 @@ Item {
                                             running: status === "RUNNING"
                                             onRunningChanged: {
                                                 if (!running) {
-                                                    stateIcon.rotation = 0 // 动画一旦停止，立刻把角度归零
+                                                    stateIcon.rotation = 0
                                                 }
                                             }
                                         }
@@ -304,6 +405,7 @@ Item {
                                     text: status === "PASS" ? "合格" :
                                           status === "FAIL" ? "不合格" :
                                           status === "TIMEOUT" ? "已掉线" :
+                                          status === "STOP" ? "已停止" :
                                           status === "IDLE" ? "未启用" : "正在测试"
                                     color: "white"
                                     font.pixelSize: 18
@@ -385,8 +487,6 @@ Item {
                         }
                     } else {
                         let config = calibPage.validateAndGetConfig();
-
-                        // 如果 config 不是 null，说明校验通过了
                         if (config) {
                             ins.startTask(
                                 mode_ErrorCalc,
@@ -403,6 +503,9 @@ Item {
             }
         }
 
+        // ==========================================
+        // 底层：动态表头 + 真实大纲渲染区
+        // ==========================================
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -443,7 +546,7 @@ Item {
                     }
                 }
 
-                // === 真实动态数据渲染区 ===
+                // === 真实数据渲染区 ===
                 ListView {
                     id: resultListView
                     Layout.fillWidth: true
@@ -451,8 +554,6 @@ Item {
                     clip: true
                     interactive: true
                     boundsBehavior: Flickable.StopAtBounds
-
-                    // 绑定为我们的局部动态数组
                     model: currentTableModel
 
                     ScrollBar.vertical: ScrollBar {
@@ -465,27 +566,21 @@ Item {
                         spacing: 0
 
                         property var rowData: modelData
-                        // 🌟 保存当前行号，防止被内层的 Repeater 的 index 覆盖
                         property int rowIdx: index
-
-                        // 1. 核心判断：当前行的索引是否等于 ListView 记录的“当前选中索引”
                         property bool isSelected: resultListView.currentIndex === rowIdx
 
-                        // 2. 悬停监听
                         HoverHandler { id: rowHover }
 
-                        // 3. 点击监听
                         TapHandler {
                             onTapped: {
                                 resultListView.currentIndex = rowIdx
                             }
                         }
 
-                        // 🌟 4. 颜色逻辑（优先级：选中 > 悬停 > 斑马纹）
                         property color rowBgColor: {
-                            if (isSelected) return "#CCE8FF"       // 第一优先级：选中时，显示较深的选中蓝
-                            if (rowHover.hovered) return "#E6F7FF" // 第二优先级：悬停时，显示较浅的悬停蓝
-                            return rowIdx % 2 === 0 ? "#FFFFFF" : "#FAFAFA" // 第三优先级：默认斑马纹
+                            if (isSelected) return "#CCE8FF"
+                            if (rowHover.hovered) return "#E6F7FF"
+                            return rowIdx % 2 === 0 ? "#FFFFFF" : "#FAFAFA"
                         }
 
                         // 测试条件列
@@ -499,24 +594,26 @@ Item {
                             }
                         }
 
-                        // 真实测量数据列
+                        // 测量结果单元格
                         Repeater {
                             model: rowData.cells
                             delegate: Rectangle {
                                 Layout.fillWidth: true
                                 height: parent.height
-                                color: rowBgColor // 同步使用外层算好的行背景色
+                                color: rowBgColor
                                 border.color: "#E0E0E0"
                                 border.width: 1
 
                                 Label {
                                     anchors.centerIn: parent
-                                    // 直接拿C++传来的 errStr，如果是undefined就显示 -
                                     text: modelData.errStr !== undefined ? modelData.errStr : "-"
                                     font.bold: true
                                     font.pixelSize: 16
-                                    // 根据 C++ 的 isFail 字段判断是否标红
-                                    color: modelData.isFail ? "#F44336" : "#388E3C"
+                                    // 🌟 核心调色：是 '-' 时静静显灰，测到数据后变绿/红，极其夺目！
+                                    color: {
+                                        if (modelData.errStr === "-" || modelData.errStr === undefined) return "#909399";
+                                        return modelData.isFail ? "#F44336" : "#388E3C";
+                                    }
                                 }
                             }
                         }

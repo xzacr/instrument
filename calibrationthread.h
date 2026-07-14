@@ -32,7 +32,8 @@ public:
         Error_Pass    = 1, // 绿色：全部合格
         Error_Fail    = 2, // 红色：存在不合格项
         Error_Running = 3, // 蓝色：正在测试中
-        Error_Timeout = 4  // 黄色：通讯超时
+        Error_Timeout = 4, // 黄色：通讯超时
+        Error_Stop = 5     // 黄色：通讯超时
     };
     enum CategoryType {
         Cat_V = 0,             // 0: 电压
@@ -97,6 +98,7 @@ public:
 
 signals:
     // 发送给主界面弹窗的跨线程信号
+    void showResultPopup(QString title, QString msg, QString type);
     void showTopMessage(const QString &msg, const QString &type);
     void srcMessage(const QString &msg, const QString &type);
     void meterStepStatusChanged(int meterIndex, int stepIndex, int status);
@@ -127,12 +129,19 @@ private:
     // 🌟 1. 通用误差计算与 QML 数据打包工具
     QVariantMap calcErrAndMakeMap(uint8_t addr, const QString &phaseName, float std, float meas, Cell &outCell, float limit,const QString &conditionName);
 
-    // 🌟 2. 专门处理电压和电流数据的函数
-    void processVoltageCurrentData(Meter &meter, const TestPoint &pt, const QVector<float> &rawData);
     bool processActivePowerData(Meter &meter, const TestPoint &pt, const QVector<float> &pData, Row &row, QVariantList &qmlCells, bool isLastTry);
-    void processReactivePowerData(Meter &meter, const TestPoint &pt, const QVector<float> &rawData);
-    void processApparentPowerData(Meter &meter, const TestPoint &pt, const QVector<float> &rawData);
-    void processPowerFactorData(Meter &meter, const TestPoint &pt, const QVector<float> &rawData);
+
+    // 1. 电压/电流 (注意：同时需要传入 vol 和 cur 两套缓存)
+    bool processVoltageCurrentData(Meter &meter, const TestPoint &pt, const QVector<float> &viData, Row &volRow, QVariantList &volQmlCells, Row &curRow, QVariantList &curQmlCells, bool isLastTry);
+
+    // 2. 无功功率
+    bool processReactivePowerData(Meter &meter, const TestPoint &pt, const QVector<float> &pData, Row &row, QVariantList &qmlCells, bool isLastTry);
+
+    // 3. 视在功率
+    bool processApparentPowerData(Meter &meter, const TestPoint &pt, const QVector<float> &pData, Row &row, QVariantList &qmlCells, bool isLastTry);
+
+    // 4. 功率因数
+    bool processPowerFactorData(Meter &meter, const TestPoint &pt, const QVector<float> &rawData, Row &row, QVariantList &qmlCells, bool isLastTry);
     // 🌟 3. 万能执行引擎（负责切源、等待、读取，读完后回调处理函数）
     // 为了不使用复杂的 std::function 或 Lambda，我们用一个“类别枚举”来让引擎自己判断调哪个处理函数
 
