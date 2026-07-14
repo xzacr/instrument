@@ -197,6 +197,51 @@ CalibrationThread::CalibrationThread(QObject *parent)
        {"264V, PF=0.8C, 5.0A", 264.0f, 5.0f, -0.8f, 0.5f, buildSourceConfigCmd(264.0f, 5.0f, -0.8f)},
        {"264V, PF=0.8C, 6.0A", 264.0f, 6.0f, -0.8f, 0.5f, buildSourceConfigCmd(264.0f, 6.0f, -0.8f)},
        };
+    m_energyActiveTestPoints = {
+        // --- PF=1.0 (5个点) ---
+        {"220V, PF=1.0, 0.05A",  220.0f, 0.05f,  1.0f, 1.0f, buildSourceConfigCmd(220.0f, 0.05f,  1.0f)},
+        {"220V, PF=1.0, 0.20A",  220.0f, 0.20f,  1.0f, 1.0f, buildSourceConfigCmd(220.0f, 0.20f,  1.0f)},
+        {"220V, PF=1.0, 0.25A",  220.0f, 0.25f,  1.0f, 0.5f, buildSourceConfigCmd(220.0f, 0.25f,  1.0f)},
+        {"220V, PF=1.0, 5.00A",  220.0f, 5.00f,  1.0f, 0.5f, buildSourceConfigCmd(220.0f, 5.00f,  1.0f)},
+        {"220V, PF=1.0, 6.00A",  220.0f, 6.00f,  1.0f, 0.5f, buildSourceConfigCmd(220.0f, 6.00f,  1.0f)},
+
+        // --- PF=0.5L (6个点) ---
+        {"220V, PF=0.5L, 0.10A", 220.0f, 0.10f,  0.5f, 1.0f, buildSourceConfigCmd(220.0f, 0.10f,  0.5f)},
+        {"220V, PF=0.5L, 0.25A", 220.0f, 0.25f,  0.5f, 1.0f, buildSourceConfigCmd(220.0f, 0.25f,  0.5f)},
+        {"220V, PF=0.5L, 0.40A", 220.0f, 0.40f,  0.5f, 1.0f, buildSourceConfigCmd(220.0f, 0.40f,  0.5f)},
+        {"220V, PF=0.5L, 0.50A", 220.0f, 0.50f,  0.5f, 0.6f, buildSourceConfigCmd(220.0f, 0.50f,  0.5f)},
+        {"220V, PF=0.5L, 5.00A", 220.0f, 5.00f,  0.5f, 0.6f, buildSourceConfigCmd(220.0f, 5.00f,  0.5f)},
+        {"220V, PF=0.5L, 6.00A", 220.0f, 6.00f,  0.5f, 0.6f, buildSourceConfigCmd(220.0f, 6.00f,  0.5f)},
+
+        // --- PF=0.8C (6个点) ---
+        {"220V, PF=0.8C, 0.10A", 220.0f, 0.10f, -0.8f, 1.0f, buildSourceConfigCmd(220.0f, 0.10f, -0.8f)},
+        {"220V, PF=0.8C, 0.25A", 220.0f, 0.25f, -0.8f, 1.0f, buildSourceConfigCmd(220.0f, 0.25f, -0.8f)},
+        {"220V, PF=0.8C, 0.40A", 220.0f, 0.40f, -0.8f, 1.0f, buildSourceConfigCmd(220.0f, 0.40f, -0.8f)},
+        {"220V, PF=0.8C, 0.50A", 220.0f, 0.50f, -0.8f, 0.6f, buildSourceConfigCmd(220.0f, 0.50f, -0.8f)},
+        {"220V, PF=0.8C, 5.00A", 220.0f, 5.00f, -0.8f, 0.6f, buildSourceConfigCmd(220.0f, 5.00f, -0.8f)},
+        {"220V, PF=0.8C, 6.00A", 220.0f, 6.00f, -0.8f, 0.6f, buildSourceConfigCmd(220.0f, 6.00f, -0.8f)}
+    };
+
+    m_energyReactiveTestPoints = {
+        // --- PF=0 (5个点) ---
+        {"220V, PF=0, 0.10A",      220.0f, 0.10f, 0.0f,   1.25f, buildSourceConfigCmd(220.0f, 0.10f, 0.0f)},
+        {"220V, PF=0, 0.20A",      220.0f, 0.20f, 0.0f,   1.25f, buildSourceConfigCmd(220.0f, 0.20f, 0.0f)},
+        {"220V, PF=0, 0.25A",      220.0f, 0.25f, 0.0f,   1.0f,  buildSourceConfigCmd(220.0f, 0.25f, 0.0f)},
+        {"220V, PF=0, 5.00A",      220.0f, 5.00f, 0.0f,   1.0f,  buildSourceConfigCmd(220.0f, 5.00f, 0.0f)},
+        {"220V, PF=0, 6.00A",      220.0f, 6.00f, 0.0f,   1.0f,  buildSourceConfigCmd(220.0f, 6.00f, 0.0f)},
+
+        // --- PF=0.866 (5个点) ---
+        {"220V, PF=0.866, 0.25A",  220.0f, 0.25f, 0.866f, 1.25f, buildSourceConfigCmd(220.0f, 0.25f, 0.866f)},
+        {"220V, PF=0.866, 0.40A",  220.0f, 0.40f, 0.866f, 1.25f, buildSourceConfigCmd(220.0f, 0.40f, 0.866f)},
+        {"220V, PF=0.866, 0.50A",  220.0f, 0.50f, 0.866f, 1.0f,  buildSourceConfigCmd(220.0f, 0.50f, 0.866f)},
+        {"220V, PF=0.866, 5.00A",  220.0f, 5.00f, 0.866f, 1.0f,  buildSourceConfigCmd(220.0f, 5.00f, 0.866f)},
+        {"220V, PF=0.866, 6.00A",  220.0f, 6.00f, 0.866f, 1.0f,  buildSourceConfigCmd(220.0f, 6.00f, 0.866f)},
+
+        // --- PF=0.968246 (3个点) ---
+        {"220V, PF=0.968246, 0.50A", 220.0f, 0.50f, 0.968246f, 1.25f, buildSourceConfigCmd(220.0f, 0.50f, 0.968246f)},
+        {"220V, PF=0.968246, 5.00A", 220.0f, 5.00f, 0.968246f, 1.25f, buildSourceConfigCmd(220.0f, 5.00f, 0.968246f)},
+        {"220V, PF=0.968246, 6.00A", 220.0f, 6.00f, 0.968246f, 1.25f, buildSourceConfigCmd(220.0f, 6.00f, 0.968246f)}
+    };
 }
 
 CalibrationThread::~CalibrationThread()
@@ -304,6 +349,12 @@ void CalibrationThread::run()
         }
     }
 
+    if (m_workMode == Mode_EnergyCalc) {
+        if (!runEnergyCalcFlow(srcPort, meterPort, meters, aliveCount)) {
+            goto ABORT_PROCESS;
+        }
+    }
+
     // 全部通关或彻底结束！
     if (m_isRunning) {
         qInfo() << "====== 流程圆满结束，有效仪表数：" << aliveCount << " ======";
@@ -382,7 +433,7 @@ bool CalibrationThread::runCalibrationFlow(QSerialPort &srcPort, QSerialPort &me
     // qInfo() << "正在全通道监测物理输出，验证三相配置...";
     // if (!waitSourceStable(srcPort, 1.0f, 1000)) return false;
     qDebug("3. 等待源和仪表稳定...");
-    QThread::msleep(120000);
+    QThread::msleep(5000);
 
     emit srcMessage("220V/5A/PF=1.0", "success");
     if (!m_isRunning) return false;
@@ -482,7 +533,7 @@ bool CalibrationThread::runCalibrationFlow(QSerialPort &srcPort, QSerialPort &me
     // qInfo() << "正在全通道监测物理输出，验证三相全量配置(0.5PF)...";
     // if (!waitSourceStable(srcPort, 0.5f, 1000)) return false;
 
-    QThread::msleep(120000);
+    QThread::msleep(5000);
     qDebug("3. 等待源和仪表稳定...");
     emit srcMessage("220V/5A/PF=0.5", "success");
     if (!m_isRunning) return false;
@@ -572,29 +623,29 @@ bool CalibrationThread::runErrorCalcFlow(QSerialPort &srcPort, QSerialPort &mete
     }
 
 
-    // //1. 执行电压电流测试 (地址 0x1018, 9个参数)
-    // qInfo() << "====== 1. 执行电压电流测试 ======";
-    // if (!runTestCategory(srcPort, meterPort, Cat_V, 0x1018, 9, m_viTestPoints, meters, aliveCount)) {
-    //     return false;
-    // }
+    //1. 执行电压电流测试 (地址 0x1018, 9个参数)
+    qInfo() << "====== 1. 执行电压电流测试 ======";
+    if (!runTestCategory(srcPort, meterPort, Cat_V, 0x1018, 9, m_viTestPoints, meters, aliveCount)) {
+        return false;
+    }
 
-    // // 2. 执行有功功率测试
-    // qInfo() << "====== 2. 执行有功功率测试 ======";
-    // if (!runTestCategory(srcPort, meterPort, Cat_ActivePower, 0x300C, 4, m_activePowerTestPoints, meters, aliveCount)) {
-    //     return false;
-    // }
+    // 2. 执行有功功率测试
+    qInfo() << "====== 2. 执行有功功率测试 ======";
+    if (!runTestCategory(srcPort, meterPort, Cat_ActivePower, 0x300C, 4, m_activePowerTestPoints, meters, aliveCount)) {
+        return false;
+    }
 
-    // // 3. 执行无功功率测试
-    // qInfo() << "====== 3. 执行无功功率测试 ======";
-    // if (!runTestCategory(srcPort, meterPort, Cat_ReactivePower, 0x3014, 4, m_reactivePowerTestPoints, meters, aliveCount)) {
-    //     return false;
-    // }
+    // 3. 执行无功功率测试
+    qInfo() << "====== 3. 执行无功功率测试 ======";
+    if (!runTestCategory(srcPort, meterPort, Cat_ReactivePower, 0x3014, 4, m_reactivePowerTestPoints, meters, aliveCount)) {
+        return false;
+    }
 
-    // // 4. 执行视在功率测试
-    // qInfo() << "====== 4. 执行视在功率测试 ======";
-    // if (!runTestCategory(srcPort, meterPort, Cat_ApparentPower, 0x301C, 4, m_apparentPowerTestPoints, meters, aliveCount)) {
-    //     return false;
-    // }
+    // 4. 执行视在功率测试
+    qInfo() << "====== 4. 执行视在功率测试 ======";
+    if (!runTestCategory(srcPort, meterPort, Cat_ApparentPower, 0x301C, 4, m_apparentPowerTestPoints, meters, aliveCount)) {
+        return false;
+    }
 
     // 5. 执行功率因数测试
     qInfo() << "====== 5. 执行功率因数测试 ======";
@@ -602,10 +653,10 @@ bool CalibrationThread::runErrorCalcFlow(QSerialPort &srcPort, QSerialPort &mete
         return false;
     }
 
-    // //6. 执行全段谐波测试 (双通道同测)
-    // if (!runHarmonicsFlow(srcPort, meterPort, meters, aliveCount)) {
-    //     return false;
-    // }
+    //6. 执行全段谐波测试 (双通道同测)
+    if (!runHarmonicsFlow(srcPort, meterPort, meters, aliveCount)) {
+        return false;
+    }
 
     if (!m_isRunning) return false;
 
@@ -625,6 +676,201 @@ bool CalibrationThread::runErrorCalcFlow(QSerialPort &srcPort, QSerialPort &mete
 
     qDebug("误差测试完毕: %d 台合格, %d 台超标, %d 台未启用或超时",pass,fail,5-pass-fail);
 
+    return true;
+}
+
+// =========================================================================
+// 🌟 [新增核心] 构建 489 字节的长报文清零指令 (0x81 AA)
+// =========================================================================
+QByteArray CalibrationThread::buildEnergyClearCmd(int checkType)
+{
+    QByteArray data;
+    QDataStream stream(&data, QIODevice::WriteOnly);
+    stream.setByteOrder(QDataStream::LittleEndian);
+
+    // 1. 写入 YMPara[8] 配置区 (256字节)
+    for (int i = 0; i < 8; ++i) {
+        stream << (quint32)20000; // Constp (有功脉冲常数)
+        stream << (quint32)20000; // Constq (无功脉冲常数)
+        stream << (quint32)20000; // PowerConstP (本机有功)
+        stream << (quint32)20000; // PowerConstQ (本机无功)
+        stream << (quint32)3;     // CheckNum (校验圈数)
+        stream << (quint32)checkType; // CheckType (1:有功, 0:无功)
+        stream << (quint32)12;    // SAvergeNum
+        stream << (quint32)0;     // CalType (平均值法)
+    }
+
+    // 2. 写入 YMData[8] 数据区全填 0 (224字节，实现清零核心！)
+    for (int i = 0; i < 8; ++i) {
+        stream << (quint32)0; // Num (脉冲数)
+        stream << 0.0f;       // Err
+        stream << 0.0f;       // P
+        stream << 0.0f;       // Q
+        stream << 0.0f;       // Ep
+        stream << 0.0f;       // Eq
+        stream << 0.0f;       // SErr
+    }
+
+    // 3. 封装头尾与校验和
+    QByteArray frame;
+    frame.append(0x68);
+    quint16 len = data.size() + 8; // 长度包含地址、命令和数据
+    frame.append(len & 0xFF).append((len >> 8) & 0xFF);
+    frame.append(0x68).append((char)0x00);
+    frame.append((char)0x81).append((char)0xAA); // 0x81 AA 写电能参数
+    frame.append(data);
+
+    quint8 cs = 0;
+    for (int i = 4; i < frame.size(); ++i) cs += (quint8)frame[i];
+    frame.append(cs).append(0x16);
+
+    return frame;
+}
+
+bool CalibrationThread::readStandardEnergy(QSerialPort &srcPort, float &outActiveEnergy, float &outReactiveEnergy)
+{
+    // 发送 0x81 55 查询
+    srcPort.write(m_queryEnergyCmd);
+    if (!checkSourceResponse(srcPort, 1500)) return false;
+
+    QByteArray rx = srcPort.readAll();
+    // 校验头部和指令类型
+    if (rx.size() >= 489 && rx[0] == 0x68 && (quint8)rx[5] == 0x81 && (quint8)rx[6] == 0x55) {
+        // YMData[0] 起始索引为: 头(7字节) + YMPara(256字节) = 263
+        int baseIdx = 263;
+
+        // 按照结构体偏移量提取 Ep(有功电能) 和 Eq(无功电能)
+        memcpy(&outActiveEnergy, rx.constData() + baseIdx + 16, 4);   // offset 16 is Ep
+        memcpy(&outReactiveEnergy, rx.constData() + baseIdx + 20, 4); // offset 20 is Eq
+        return true;
+    }
+    return false;
+}
+
+bool CalibrationThread::runEnergyCategory(QSerialPort &srcPort, QSerialPort &meterPort, QList<Meter> &meters, const QList<TestPoint> &testPoints, int categoryIdx, bool isActive)
+{
+    for (const auto &pt : testPoints) {
+        if (!m_isRunning) return false;
+
+        qInfo() << ">>> 准备测试工况:" << pt.name << " 精度要求:" << pt.limit << "%";
+
+        // 1. 下发源电压电流配置，并启动
+        if (!sendSourceCmd(srcPort, pt.srcCmd)) return false;
+        QThread::msleep(300);
+        if (!sendSourceCmd(srcPort, m_startCmd, 6000)) return false;
+
+        qDebug(">>> 等待标准源输出稳定 (10秒)...");
+        for (int i = 0; i < 10; ++i) {
+            if (!m_isRunning) return false;
+            QThread::msleep(1000);
+        }
+
+        // 2. [核心动作] 砸出清零大报文！
+        int checkType = isActive ? 1 : 0;
+        QByteArray clearCmd = buildEnergyClearCmd(checkType);
+        qInfo() << ">>> 下发标准源清零报文...";
+        if (!sendSourceCmd(srcPort, clearCmd, 2000)) return false;
+
+        // 3. 批量清零仪表
+        for (auto &m : meters) {
+            if (m.isEnabled && m.isAlive) {
+                emit updateErrorMeterStatus(m.uiIndex, Error_Running, "正在清零...");
+                //clearMeterEnergy(meterPort, m.address);
+            }
+        }
+
+        // 4. 进入 1秒轮询走字大循环 (暂定跑 20 秒出成绩，可根据现场实际情况改大)
+        int testSeconds = 20;
+        for (int sec = 1; sec <= testSeconds; ++sec) {
+            if (!m_isRunning) return false;
+
+            // 发个 0x82 心跳维持状态
+            srcPort.write(m_queryStatusCmd);
+            checkSourceResponse(srcPort, 200);
+
+            // 读标准源电能
+            float stdActive = 0, stdReactive = 0;
+            float stdEnergy = 0;
+            if (readStandardEnergy(srcPort, stdActive, stdReactive)) {
+                stdEnergy = isActive ? stdActive : stdReactive;
+            }
+
+            // 读每块表并推送给 QML
+            for (auto &m : meters) {
+                if (!m.isEnabled || !m.isAlive) continue;
+
+                emit updateErrorMeterStatus(m.uiIndex, Error_Running, QString("走字中: %1s / %2s").arg(sec).arg(testSeconds));
+
+                float meterEnergy = 0;
+                //readMeterEnergy(meterPort, m.address, meterEnergy, isActive);
+
+                // 计算误差：(实测 - 标准) / 标准 * 100
+                float err = 0;
+                if (stdEnergy > 0.0001f) {
+                    err = (meterEnergy - stdEnergy) / stdEnergy * 100.0f;
+                }
+                bool isFail = (qAbs(err) > pt.limit);
+
+                // ==========================================
+                // 🌟 组装推给 QML 的 3 个格子数据
+                // [0]标准电能, [1]实测电能, [2]误差
+                // ==========================================
+                QVariantList qmlCells;
+                QVariantMap mapStd, mapMeas, mapErr;
+
+                mapStd["errStr"] = QString::number(stdEnergy, 'f', 4);
+                mapStd["isFail"] = false;
+
+                mapMeas["errStr"] = QString::number(meterEnergy, 'f', 4);
+                mapMeas["isFail"] = false;
+
+                mapErr["errStr"] = QString("%1%2%").arg(err > 0 ? "+" : "").arg(err, 0, 'f', 3);
+                mapErr["isFail"] = isFail;
+
+                qmlCells << mapStd << mapMeas << mapErr;
+
+                // 推送给 QML，同名行会自动覆盖实现跳字
+                emit appendErrorRow(m.uiIndex, categoryIdx, pt.name, qmlCells);
+
+                // 如果是本工况测试的最后一秒，最终判定生死
+                if (sec == testSeconds && isFail) {
+                    m.hasFail = true;
+                }
+            }
+
+            QThread::msleep(1000); // 严格等待一秒
+        }
+    }
+    return true;
+}
+
+bool CalibrationThread::runEnergyCalcFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<Meter> &meters, int &aliveCount)
+{
+    qInfo() << "====== 正在启动 [电能走字] 测试系统 ======";
+
+    // 1. 跑有功 (category 0)
+    qInfo() << "=== 启动有功电能走字测试 ===";
+    if (!runEnergyCategory(srcPort, meterPort, meters, m_energyActiveTestPoints, 0, true)) return false;
+
+    // 2. 跑无功 (category 1)
+    qInfo() << "=== 启动无功电能走字测试 ===";
+    if (!runEnergyCategory(srcPort, meterPort, meters, m_energyReactiveTestPoints, 1, false)) return false;
+
+    // 结算
+    aliveCount = 0;
+    int pass = 0, fail = 0;
+    for (auto &meter : meters) {
+        if (meter.isEnabled && meter.isAlive) {
+            aliveCount++;
+            if (meter.hasFail) {
+                fail++;
+                emit updateErrorMeterStatus(meter.uiIndex, Error_Fail, "有超标项");
+            } else {
+                pass++;
+                emit updateErrorMeterStatus(meter.uiIndex, Error_Pass, "全部合格");
+            }
+        }
+    }
     return true;
 }
 

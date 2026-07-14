@@ -42,6 +42,9 @@ ApplicationWindow {
         // ErrorCalcExample{
         //     id: errorPageex
         // }
+        EnergyCalc{
+            id: energyPage
+        }
     }
 
     TopMessage {

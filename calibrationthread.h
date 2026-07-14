@@ -25,7 +25,8 @@ public:
     };
     enum WorkMode {
         Mode_FullAuto = 0,
-        Mode_ErrorCalc = 1
+        Mode_ErrorCalc = 1,
+        Mode_EnergyCalc = 2
     };
     enum ErrorCardStatus {
         Error_Idle    = 0, // 灰色：未启用
@@ -120,6 +121,16 @@ private slots:
     void onMeterPortError(QSerialPort::SerialPortError error);
 
 private:
+    // 🌟 电能走字专属流程与指令
+    bool runEnergyCalcFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<Meter> &meters, int &aliveCount);
+
+    // 🌟 提取出来的：执行单一电能分类(有功/无功)走字测试的通用函数
+    bool runEnergyCategory(QSerialPort &srcPort, QSerialPort &meterPort, QList<Meter> &meters, const QList<TestPoint> &testPoints, int categoryIdx, bool isActive);
+    QByteArray buildEnergyClearCmd(int checkType); // 构造 0x81 AA 清零命令(1:有功, 0:无功)
+    bool readStandardEnergy(QSerialPort &srcPort, float &outActiveEnergy, float &outReactiveEnergy); // 解析 0x81 55
+
+
+
     bool readMeterHarmonicData16(QSerialPort &port, quint8 addr, quint16 startReg, int count16, QVector<float> &outValues);
     // 🌟 谐波专属主流程
     bool runHarmonicsFlow(QSerialPort &srcPort, QSerialPort &meterPort, QList<Meter> &meters, int &aliveCount);
@@ -216,12 +227,17 @@ private:
     const QByteArray m_queryAllCmd = QByteArray::fromHex("68 6C 00 68 00 91 01 00 00 00 00 02 00 00 00 00 26 00 00 00 00 03 00 00 00 00 04 00 00 00 00 27 00 00 00 00 05 00 00 00 00 06 00 00 00 00 28 00 00 00 00 07 00 00 00 00 08 00 00 00 00 29 00 00 00 00 09 00 00 00 00 0A 00 00 00 00 2A 00 00 00 00 0B 00 00 00 00 0C 00 00 00 00 2B 00 00 00 00 0E 00 00 00 00 0F 00 00 00 00 EF 16");
     // 0x28 启动全体谐波 (Ua,Ub,Uc,Ia,Ib,Ic = 55 55 55 55 55 55)
     const QByteArray startAllHarmonicCmd = QByteArray::fromHex("68 0E 00 68 00 28 55 55 55 55 55 55 26 16");
+    const QByteArray m_queryStatusCmd = QByteArray::fromHex("68 08 00 68 00 82 82 16");
+    const QByteArray m_queryEnergyCmd = QByteArray::fromHex("68 09 00 68 00 81 55 D6 16");
+
 
     QList<TestPoint> m_viTestPoints;
     QList<TestPoint> m_activePowerTestPoints;
     QList<TestPoint> m_reactivePowerTestPoints;
     QList<TestPoint> m_apparentPowerTestPoints;
     QList<TestPoint> m_powerFactorTestPoints;
+    QList<TestPoint> m_energyActiveTestPoints;
+    QList<TestPoint> m_energyReactiveTestPoints;
 
     QList<Meter> m_meters;
     // 新增一个成员变量保存当前模式
