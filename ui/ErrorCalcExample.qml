@@ -382,7 +382,7 @@ Item {
                 Layout.preferredWidth: 160
 
                 // 监听底层的运行状态
-                property bool isRunning: typeof ins !== "undefined" ? ins.isCalibrating : false
+                property bool isRunning: ins ? ins.isCalibrating : false
 
                 background: Rectangle {
                     // 运行时显示红色警示，闲置时显示主题蓝色，按下时略微变暗

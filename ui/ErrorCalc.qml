@@ -23,6 +23,15 @@ Item {
         "视在功率", "功率因数", "谐波电压", "谐波电流"
     ]
 
+    property int failTrigger: 0
+
+    function hasCategoryFail(catIdx) {
+        let dummy = failTrigger; // 绑定信号灯，确保数据一来立马重新计算！
+        if (!meterDataStore || meterDataStore.length === 0) return false;
+        let rows = meterDataStore[selectedMeterIndex][catIdx];
+        // 只要该分类下任意一行的任意一格 isFail 为 true，就返回 true
+        return rows ? rows.some(r => r.cells.some(c => c.isFail)) : false;
+    }
     // =====================================================================
     // 🌟 1. 表头列名映射 (需要和 C++ rowCells 下发的数量严格匹配)
     // =====================================================================
@@ -38,78 +47,100 @@ Item {
         return []
     }
 
-    // =====================================================================
-    // 🌟 2. 固定量产测试大纲表头 (必须与 C++ 初始化里的 string name 对应)
-    // =====================================================================
     function getRows(cat) {
-        // --- 0: 电压 / 1: 电流 ---
+        // 🌟 1. 动态获取系统设置里的标准源误差补偿值 (默认按 0.0 算，防呆保护)
+        let offset = (typeof syssettings !== "undefined" && syssettings.sourceErrorOffset !== undefined)
+                     ? syssettings.sourceErrorOffset : 0.0;
+
+        // 🌟 2. 核心辅助计算器：基础限值 + 动态补偿，完美去除末尾多余0
+        // 效果：(1.0, 0.1) -> ", 1.1%"; (1.25, 0.1) -> ", 1.35%"
+        let calc = function(base) {
+            let val = base + offset;
+            return ", " + val.toFixed(2).replace(/0$/, "") + "%";
+        };
+
+        // --- 0: 电压 / 1: 电流 (基础限值 0.5%) ---
         if (cat === 0 || cat === 1) {
+            let l05 = calc(0.5);
             return [
-                "44V,  0.5A",
-                "220V, 5.0A",
-                "264V, 6.0A"
+                "44V,  0.5A" + l05,
+                "220V, 5.0A" + l05,
+                "264V, 6.0A" + l05
             ];
         }
+
         // --- 2: 有功功率 (51个点) ---
         if (cat === 2) {
+            let l05 = calc(0.5);
+            let l06 = calc(0.6);
+            let l10 = calc(1.0);
             return [
                 // 第一组：176V
-                "176V, PF=1.0, 0.05A", "176V, PF=1.0, 0.20A", "176V, PF=1.0, 0.25A", "176V, PF=1.0, 5.00A", "176V, PF=1.0, 6.00A",
-                "176V, PF=0.5L, 0.10A", "176V, PF=0.5L, 0.25A", "176V, PF=0.5L, 0.40A", "176V, PF=0.5L, 0.50A", "176V, PF=0.5L, 5.00A", "176V, PF=0.5L, 6.00A",
-                "176V, PF=0.8C, 0.10A", "176V, PF=0.8C, 0.25A", "176V, PF=0.8C, 0.40A", "176V, PF=0.8C, 0.50A", "176V, PF=0.8C, 5.00A", "176V, PF=0.8C, 6.00A",
+                "176V, PF=1.0, 0.05A" + l10, "176V, PF=1.0, 0.20A" + l10, "176V, PF=1.0, 0.25A" + l05, "176V, PF=1.0, 5.00A" + l05, "176V, PF=1.0, 6.00A" + l05,
+                "176V, PF=0.5L, 0.10A" + l10, "176V, PF=0.5L, 0.25A" + l10, "176V, PF=0.5L, 0.40A" + l10, "176V, PF=0.5L, 0.50A" + l06, "176V, PF=0.5L, 5.00A" + l06, "176V, PF=0.5L, 6.00A" + l06,
+                "176V, PF=0.8C, 0.10A" + l10, "176V, PF=0.8C, 0.25A" + l10, "176V, PF=0.8C, 0.40A" + l10, "176V, PF=0.8C, 0.50A" + l06, "176V, PF=0.8C, 5.00A" + l06, "176V, PF=0.8C, 6.00A" + l06,
                 // 第二组：220V
-                "220V, PF=1.0, 0.05A", "220V, PF=1.0, 0.20A", "220V, PF=1.0, 0.25A", "220V, PF=1.0, 5.00A", "220V, PF=1.0, 6.00A",
-                "220V, PF=0.5L, 0.10A", "220V, PF=0.5L, 0.25A", "220V, PF=0.5L, 0.40A", "220V, PF=0.5L, 0.50A", "220V, PF=0.5L, 5.00A", "220V, PF=0.5L, 6.00A",
-                "220V, PF=0.8C, 0.10A", "220V, PF=0.8C, 0.25A", "220V, PF=0.8C, 0.40A", "220V, PF=0.8C, 0.50A", "220V, PF=0.8C, 5.00A", "220V, PF=0.8C, 6.00A",
+                "220V, PF=1.0, 0.05A" + l10, "220V, PF=1.0, 0.20A" + l10, "220V, PF=1.0, 0.25A" + l05, "220V, PF=1.0, 5.00A" + l05, "220V, PF=1.0, 6.00A" + l05,
+                "220V, PF=0.5L, 0.10A" + l10, "220V, PF=0.5L, 0.25A" + l10, "220V, PF=0.5L, 0.40A" + l10, "220V, PF=0.5L, 0.50A" + l06, "220V, PF=0.5L, 5.00A" + l06, "220V, PF=0.5L, 6.00A" + l06,
+                "220V, PF=0.8C, 0.10A" + l10, "220V, PF=0.8C, 0.25A" + l10, "220V, PF=0.8C, 0.40A" + l10, "220V, PF=0.8C, 0.50A" + l06, "220V, PF=0.8C, 5.00A" + l06, "220V, PF=0.8C, 6.00A" + l06,
                 // 第三组：264V
-                "264V, PF=1.0, 0.05A", "264V, PF=1.0, 0.20A", "264V, PF=1.0, 0.25A", "264V, PF=1.0, 5.00A", "264V, PF=1.0, 6.00A",
-                "264V, PF=0.5L, 0.10A", "264V, PF=0.5L, 0.25A", "264V, PF=0.5L, 0.40A", "264V, PF=0.5L, 0.50A", "264V, PF=0.5L, 5.00A", "264V, PF=0.5L, 6.00A",
-                "264V, PF=0.8C, 0.10A", "264V, PF=0.8C, 0.25A", "264V, PF=0.8C, 0.40A", "264V, PF=0.8C, 0.50A", "264V, PF=0.8C, 5.00A", "264V, PF=0.8C, 6.00A"
+                "264V, PF=1.0, 0.05A" + l10, "264V, PF=1.0, 0.20A" + l10, "264V, PF=1.0, 0.25A" + l05, "264V, PF=1.0, 5.00A" + l05, "264V, PF=1.0, 6.00A" + l05,
+                "264V, PF=0.5L, 0.10A" + l10, "264V, PF=0.5L, 0.25A" + l10, "264V, PF=0.5L, 0.40A" + l10, "264V, PF=0.5L, 0.50A" + l06, "264V, PF=0.5L, 5.00A" + l06, "264V, PF=0.5L, 6.00A" + l06,
+                "264V, PF=0.8C, 0.10A" + l10, "264V, PF=0.8C, 0.25A" + l10, "264V, PF=0.8C, 0.40A" + l10, "264V, PF=0.8C, 0.50A" + l06, "264V, PF=0.8C, 5.00A" + l06, "264V, PF=0.8C, 6.00A" + l06
             ];
         }
+
         // --- 3: 无功功率 (39个点) ---
         if (cat === 3) {
+            let l10 = calc(1.0);
+            let l125 = calc(1.25);
             return [
                 // 第一组：176V
-                "176V, PF=0, 0.1A", "176V, PF=0, 0.2A", "176V, PF=0, 0.25A", "176V, PF=0, 5.0A", "176V, PF=0, 6.0A",
-                "176V, PF=0.866, 0.25A", "176V, PF=0.866, 0.4A", "176V, PF=0.866, 0.5A", "176V, PF=0.866, 5.0A", "176V, PF=0.866, 6.0A",
-                "176V, PF=0.968, 0.5A", "176V, PF=0.968, 5.0A", "176V, PF=0.968, 6.0A",
+                "176V, PF=0, 0.1A" + l125, "176V, PF=0, 0.2A" + l125, "176V, PF=0, 0.25A" + l10, "176V, PF=0, 5.0A" + l10, "176V, PF=0, 6.0A" + l10,
+                "176V, PF=0.866, 0.25A" + l125, "176V, PF=0.866, 0.4A" + l125, "176V, PF=0.866, 0.5A" + l10, "176V, PF=0.866, 5.0A" + l10, "176V, PF=0.866, 6.0A" + l10,
+                "176V, PF=0.968, 0.5A" + l125, "176V, PF=0.968, 5.0A" + l125, "176V, PF=0.968, 6.0A" + l125,
                 // 第二组：220V
-                "220V, PF=0, 0.1A", "220V, PF=0, 0.2A", "220V, PF=0, 0.25A", "220V, PF=0, 5.0A", "220V, PF=0, 6.0A",
-                "220V, PF=0.866, 0.25A", "220V, PF=0.866, 0.4A", "220V, PF=0.866, 0.5A", "220V, PF=0.866, 5.0A", "220V, PF=0.866, 6.0A",
-                "220V, PF=0.968, 0.5A", "220V, PF=0.968, 5.0A", "220V, PF=0.968, 6.0A",
+                "220V, PF=0, 0.1A" + l125, "220V, PF=0, 0.2A" + l125, "220V, PF=0, 0.25A" + l10, "220V, PF=0, 5.0A" + l10, "220V, PF=0, 6.0A" + l10,
+                "220V, PF=0.866, 0.25A" + l125, "220V, PF=0.866, 0.4A" + l125, "220V, PF=0.866, 0.5A" + l10, "220V, PF=0.866, 5.0A" + l10, "220V, PF=0.866, 6.0A" + l10,
+                "220V, PF=0.968, 0.5A" + l125, "220V, PF=0.968, 5.0A" + l125, "220V, PF=0.968, 6.0A" + l125,
                 // 第三组：264V
-                "264V, PF=0, 0.1A", "264V, PF=0, 0.2A", "264V, PF=0, 0.25A", "264V, PF=0, 5.0A", "264V, PF=0, 6.0A",
-                "264V, PF=0.866, 0.25A", "264V, PF=0.866, 0.4A", "264V, PF=0.866, 0.5A", "264V, PF=0.866, 5.0A", "264V, PF=0.866, 6.0A",
-                "264V, PF=0.968, 0.5A", "264V, PF=0.968, 5.0A", "264V, PF=0.968, 6.0A"
+                "264V, PF=0, 0.1A" + l125, "264V, PF=0, 0.2A" + l125, "264V, PF=0, 0.25A" + l10, "264V, PF=0, 5.0A" + l10, "264V, PF=0, 6.0A" + l10,
+                "264V, PF=0.866, 0.25A" + l125, "264V, PF=0.866, 0.4A" + l125, "264V, PF=0.866, 0.5A" + l10, "264V, PF=0.866, 5.0A" + l10, "264V, PF=0.866, 6.0A" + l10,
+                "264V, PF=0.968, 0.5A" + l125, "264V, PF=0.968, 5.0A" + l125, "264V, PF=0.968, 6.0A" + l125
             ];
         }
+
         // --- 4: 视在功率 (15个点) ---
         if (cat === 4) {
+            let l05 = calc(0.5);
+            let l10 = calc(1.0);
             return [
-                "176V, PF=1, 0.1A", "176V, PF=1, 0.2A", "176V, PF=1, 0.3A", "176V, PF=1, 5.0A", "176V, PF=1, 6.0A",
-                "220V, PF=1, 0.1A", "220V, PF=1, 0.2A", "220V, PF=1, 0.3A", "220V, PF=1, 5.0A", "220V, PF=1, 6.0A",
-                "264V, PF=1, 0.1A", "264V, PF=1, 0.2A", "264V, PF=1, 0.3A", "264V, PF=1, 5.0A", "264V, PF=1, 6.0A"
+                "176V, PF=1, 0.1A" + l10, "176V, PF=1, 0.2A" + l10, "176V, PF=1, 0.3A" + l05, "176V, PF=1, 5.0A" + l05, "176V, PF=1, 6.0A" + l05,
+                "220V, PF=1, 0.1A" + l10, "220V, PF=1, 0.2A" + l10, "220V, PF=1, 0.3A" + l05, "220V, PF=1, 5.0A" + l05, "220V, PF=1, 6.0A" + l05,
+                "264V, PF=1, 0.1A" + l10, "264V, PF=1, 0.2A" + l10, "264V, PF=1, 0.3A" + l05, "264V, PF=1, 5.0A" + l05, "264V, PF=1, 6.0A" + l05
             ];
         }
-        // --- 5: 功率因数 (36个点) ---
+
+        // --- 5: 功率因数 (36个点，基础限值全为 0.5%) ---
         if (cat === 5) {
+            let l05 = calc(0.5);
             return [
                 // 第一组：110V
-                "110V, PF=0.5L, 0.5A", "110V, PF=0.5L, 2.5A", "110V, PF=0.5L, 5.0A", "110V, PF=0.5L, 6.0A",
-                "110V, PF=1.0, 0.5A", "110V, PF=1.0, 2.5A", "110V, PF=1.0, 5.0A", "110V, PF=1.0, 6.0A",
-                "110V, PF=0.8C, 0.5A", "110V, PF=0.8C, 2.5A", "110V, PF=0.8C, 5.0A", "110V, PF=0.8C, 6.0A",
+                "110V, PF=0.5L, 0.5A" + l05, "110V, PF=0.5L, 2.5A" + l05, "110V, PF=0.5L, 5.0A" + l05, "110V, PF=0.5L, 6.0A" + l05,
+                "110V, PF=1.0, 0.5A" + l05, "110V, PF=1.0, 2.5A" + l05, "110V, PF=1.0, 5.0A" + l05, "110V, PF=1.0, 6.0A" + l05,
+                "110V, PF=0.8C, 0.5A" + l05, "110V, PF=0.8C, 2.5A" + l05, "110V, PF=0.8C, 5.0A" + l05, "110V, PF=0.8C, 6.0A" + l05,
                 // 第二组：220V
-                "220V, PF=0.5L, 0.5A", "220V, PF=0.5L, 2.5A", "220V, PF=0.5L, 5.0A", "220V, PF=0.5L, 6.0A",
-                "220V, PF=1.0, 0.5A", "220V, PF=1.0, 2.5A", "220V, PF=1.0, 5.0A", "220V, PF=1.0, 6.0A",
-                "220V, PF=0.8C, 0.5A", "220V, PF=0.8C, 2.5A", "220V, PF=0.8C, 5.0A", "220V, PF=0.8C, 6.0A",
+                "220V, PF=0.5L, 0.5A" + l05, "220V, PF=0.5L, 2.5A" + l05, "220V, PF=0.5L, 5.0A" + l05, "220V, PF=0.5L, 6.0A" + l05,
+                "220V, PF=1.0, 0.5A" + l05, "220V, PF=1.0, 2.5A" + l05, "220V, PF=1.0, 5.0A" + l05, "220V, PF=1.0, 6.0A" + l05,
+                "220V, PF=0.8C, 0.5A" + l05, "220V, PF=0.8C, 2.5A" + l05, "220V, PF=0.8C, 5.0A" + l05, "220V, PF=0.8C, 6.0A" + l05,
                 // 第三组：264V
-                "264V, PF=0.5L, 0.5A", "264V, PF=0.5L, 2.5A", "264V, PF=0.5L, 5.0A", "264V, PF=0.5L, 6.0A",
-                "264V, PF=1.0, 0.5A", "264V, PF=1.0, 2.5A", "264V, PF=1.0, 5.0A", "264V, PF=1.0, 6.0A",
-                "264V, PF=0.8C, 0.5A", "264V, PF=0.8C, 2.5A", "264V, PF=0.8C, 5.0A", "264V, PF=0.8C, 6.0A"
+                "264V, PF=0.5L, 0.5A" + l05, "264V, PF=0.5L, 2.5A" + l05, "264V, PF=0.5L, 5.0A" + l05, "264V, PF=0.5L, 6.0A" + l05,
+                "264V, PF=1.0, 0.5A" + l05, "264V, PF=1.0, 2.5A" + l05, "264V, PF=1.0, 5.0A" + l05, "264V, PF=1.0, 6.0A" + l05,
+                "264V, PF=0.8C, 0.5A" + l05, "264V, PF=0.8C, 2.5A" + l05, "264V, PF=0.8C, 5.0A" + l05, "264V, PF=0.8C, 6.0A" + l05
             ];
         }
-        // --- 6: 谐波电压 / 7: 谐波电流 (预留) ---
+
+        // --- 6: 谐波电压 / 7: 谐波电流 ---
         if (cat === 6 || cat === 7) {
             return [
                 "220V/5A, 2次谐波", "220V/5A, 3次谐波", "220V/5A, 5次谐波",
@@ -161,6 +192,30 @@ Item {
         }
     }
 
+    function refreshHeaders() {
+        if (!meterDataStore || meterDataStore.length === 0) {
+            clearAllData();
+            return;
+        }
+
+        let data = meterDataStore;
+        // 遍历所有 5 台仪表、8 个分类
+        for (let i = 0; i < data.length; i++) {
+            for (let c = 0; c < data[i].length; c++) {
+                // 重新调用 getRows(c)，此时它会算出最新的百分比文本
+                let newRowNames = getRows(c);
+                for (let r = 0; r < data[i][c].length; r++) {
+                    if (r < newRowNames.length) {
+                        // 🌟 核心：只替换表头 header！绝不触碰 cells 里的实测数据！
+                        data[i][c][r].header = newRowNames[r];
+                    }
+                }
+            }
+        }
+        meterDataStore = data;
+        updateView(); // 强行触发 QML 视图重绘，表格里的文字瞬间更新！
+    }
+
     onSelectedMeterIndexChanged: updateView()
     onSelectedCategoryChanged: updateView()
     Component.onCompleted: clearAllData()
@@ -175,7 +230,8 @@ Item {
             }
         }
 
-        function onUpdateErrorMeterStatus(meterIndex, statusEnum, desc) {
+        function onUpdateErrorMeterStatus(page,meterIndex, statusEnum, desc) {
+            if(page !== mode_ErrorCalc) return;
             let statusStr = "IDLE";
             if (statusEnum === 0) statusStr = "IDLE";
             else if (statusEnum === 1) statusStr = "PASS";
@@ -191,15 +247,17 @@ Item {
         // =====================================================================
         // 🌟 4. 极致精简：原地精确替换 + 智能位置滚动
         // =====================================================================
-        function onAppendErrorRow(meterIndex, categoryIndex, rowName, rowCells) {
+        function onAppendErrorRow(page,meterIndex, categoryIndex, rowName, rowCells) {
             //console.log("onAppendErrorRowwwwwwwwwwwwwwwwwwwwwwwwwwww")
+            if(page !== mode_ErrorCalc) return;
             let data = meterDataStore;
             let catRows = data[meterIndex][categoryIndex];
             let foundIndex = -1;
 
             // --- 核心：严格通过名字精准替换，哪怕顺序变了也不会写错 ---
             for (let r = 0; r < catRows.length; r++) {
-                if (catRows[r].header === rowName) {
+                //if (catRows[r].header === rowName) {
+                if (catRows[r].header.startsWith(rowName)) {
                     catRows[r].cells = rowCells;
                     foundIndex = r;
                     break;
@@ -213,25 +271,45 @@ Item {
             }
 
             meterDataStore = data;
+            failTrigger++;
 
-            // if (meterIndex === selectedMeterIndex) {
-            //     // 1. 智能对偶归并：防止成对数据导致标签前后疯狂闪跳
-            //     let targetCategory = categoryIndex;
-            //     if (categoryIndex === 1) targetCategory = 0; // 收到电流(1) -> 稳在“电压(0)”标签
-            //     if (categoryIndex === 7) targetCategory = 6; // 收到谐波电流(7) -> 稳在“谐波电压(6)”标签
+            // 1. 判断操作员现在是否正停留在表格“最底部” (留出 10 像素的容差)
+            let isAtBottom = (resultListView.contentY + resultListView.height >= resultListView.contentHeight - 10);
 
-            //     // 2. 如果正在测试的分类和当前看的不一样，自动把标签切过去！
-            //     if (selectedCategory !== targetCategory) {
-            //         selectedCategory = targetCategory; // 这一步会自动触发 QML 视图重绘
-            //     } else {
-            //         updateView(); // 标签没变，正常手动刷新当前表格的值
-            //     }
+            // 2. 记住当前位置
+            let savedContentY = resultListView.contentY;
 
-            //     // 3. 延迟一帧让视图将新选中的标签表格渲染完毕，再精准对准到中间！
-            //     Qt.callLater(function() {
-            //         resultListView.positionViewAtIndex(foundIndex, ListView.Center);
-            //     });
-            // }
+            if (meterIndex === selectedMeterIndex) {
+                // 1. 智能对偶归并：防止成对数据导致标签前后疯狂闪跳
+                let targetCategory = categoryIndex;
+                if (categoryIndex === 1) targetCategory = 0; // 收到电流(1) -> 稳在“电压(0)”标签
+                if (categoryIndex === 7) targetCategory = 6; // 收到谐波电流(7) -> 稳在“谐波电压(6)”标签
+
+                // 2. 如果正在测试的分类和当前看的不一样，自动把标签切过去！
+                if (selectedCategory !== targetCategory) {
+                    //selectedCategory = targetCategory; // 这一步会自动触发 QML 视图重绘
+                } else {
+                    updateView(); // 标签没变，正常手动刷新当前表格的值
+                }
+
+                // // 3. 延迟一帧让视图将新选中的标签表格渲染完毕，再精准对准到中间！
+                // Qt.callLater(function() {
+                //     resultListView.positionViewAtIndex(foundIndex, ListView.Center);
+                // });
+            }
+            // 4. 智能分支判断
+            Qt.callLater(function() {
+                if (!isAtBottom) {
+                    // 🛡️【历史查阅模式】：如果用户刚才在翻看顶部或中间的旧数据，
+                    // 强行锁死视窗，死记当前位置，绝对不跳动！
+                    resultListView.contentY = savedContentY;
+                } else {
+                    // 🚀【实时监控模式】：如果用户刚才本来就在盯着最底部，
+                    // 那新出一条数据，就顺滑地自动帮他滚到最后一行！
+                    resultListView.positionViewAtEnd();
+                    // 如果是 TableView，可以用：
+                }
+            });
         }
     }
 
@@ -440,22 +518,52 @@ Item {
             Repeater {
                 model: categories
                 delegate: Button {
+                    property bool isCatFail: hasCategoryFail(index)
+
                     text: modelData
-                    font.pixelSize: 18
-                    font.bold: selectedCategory === index
-                    Layout.preferredHeight: 50
-                    Layout.preferredWidth: implicitWidth + 30
+                    // 🌟 1. 字体加大！选中时 20px 粗体，未选中 18px 粗体，绝对清晰大方！
+                    font.pixelSize: selectedCategory === index ? 20 : 18
+                    font.bold: true
+
+                    // 🌟 2. 按钮稍微加高一点到 54px，跟大的字号更搭
+                    Layout.preferredHeight: 54
+                    Layout.preferredWidth: implicitWidth + 40 // 左右多留点空白，更大气
+
                     background: Rectangle {
-                        color: selectedCategory === index ? themeColor : "#F0F2F5"
                         radius: 6
+
+                        // 🌟 3. 核心修复：未选中时改用“纯白 #FFFFFF”！
+                        // 这样在灰色的应用底色下，每一个未选中的按钮都是一个立体的白色方块！
+                        color: {
+                            if (selectedCategory === index) return isCatFail ? "#D32F2F" : themeColor;
+                            return isCatFail ? "#FFEBEE" : "#FFFFFF"; // <--- 看这里，从 #F0F2F5 改成了 #FFFFFF
+                        }
+
+                        // 🌟 4. 加上精致边框：选中时无边框；没选中时用 #DCDFE6 勾边
+                        border.color: {
+                            if (selectedCategory === index) return "transparent";
+                            return isCatFail ? "#F44336" : "#DCDFE6";
+                        }
+                        border.width: selectedCategory === index ? 0 : 1
+
+                        // 鼠标悬浮时的反馈动画
+                        Behavior on color { ColorAnimation { duration: 150 } }
                     }
+
                     contentItem: Text {
                         text: parent.text
                         font: parent.font
-                        color: selectedCategory === index ? "#FFFFFF" : textMain
+                        // 选中时白字；没选中且报错是红字；没选中正常是深黑字 (#303133)
+                        color: {
+                            if (selectedCategory === index) return "#FFFFFF";
+                            return isCatFail ? "#D32F2F" : "#303133";
+                        }
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
+
+                        Behavior on color { ColorAnimation { duration: 150 } }
                     }
+
                     onClicked: selectedCategory = index
                 }
             }
@@ -466,7 +574,7 @@ Item {
                 id: errorTestBtn
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 160
-                property bool isRunning: typeof ins !== "undefined" ? ins.isCalibrating : false
+                property bool isRunning: ins ? ins.isCalibrating : false
 
                 background: Rectangle {
                     color: parent.pressed ? Qt.darker((errorTestBtn.isRunning ? "#F44336" : themeColor), 1.1) : (errorTestBtn.isRunning ? "#F44336" : themeColor)
@@ -483,6 +591,7 @@ Item {
                 onClicked: {
                     if (isRunning) {
                         if (typeof ins !== "undefined") {
+                            loadingPopup.show("正在停止...");
                             ins.stopCalibration();
                         }
                     } else {

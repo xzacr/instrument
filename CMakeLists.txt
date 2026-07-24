@@ -7,6 +7,8 @@ set(QT_QML_GENERATE_QMLLS_INI ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Quick SerialPort)
 
+add_subdirectory(3rdparty/QXlsx)
+
 qt_standard_project_setup(REQUIRES 6.8)
 
 # 开启自动处理 RCC
@@ -33,6 +35,8 @@ qt_add_qml_module(appinstrument
         QML_FILES ui/StatusCard.qml
         QML_FILES ui/ResultPopup.qml
         QML_FILES ui/EnergyCalc.qml
+        QML_FILES ui/SystemSettings.qml
+        QML_FILES ui/LoadingPopup.qml
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
@@ -50,6 +54,7 @@ target_link_libraries(appinstrument
     PRIVATE Qt6::Quick
     dbghelp
     Qt6::SerialPort
+    QXlsx::QXlsx
 )
 
 install(TARGETS appinstrument

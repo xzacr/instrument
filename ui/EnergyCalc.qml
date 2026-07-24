@@ -23,6 +23,15 @@ Item {
         "有功电能", "无功电能"
     ]
 
+    property int failTrigger: 0
+
+    function hasCategoryFail(catIdx) {
+        let dummy = failTrigger; // 绑定信号灯，确保数据一来立马重新计算！
+        if (!meterDataStore || meterDataStore.length === 0) return false;
+        let rows = meterDataStore[selectedMeterIndex][catIdx];
+        // 只要该分类下任意一行的任意一格 isFail 为 true，就返回 true
+        return rows ? rows.some(r => r.cells.some(c => c.isFail)) : false;
+    }
     // =====================================================================
     // 🌟 2. 表头列名映射：两个分类都严格只需要 3 列！
     // =====================================================================
@@ -138,7 +147,8 @@ Item {
             }
         }
 
-        function onUpdateErrorMeterStatus(meterIndex, statusEnum, desc) {
+        function onUpdateErrorMeterStatus(page,meterIndex, statusEnum, desc) {
+            if(page !== mode_EnergyCalc) return;
             let statusStr = "IDLE";
             if (statusEnum === 0) statusStr = "IDLE";
             else if (statusEnum === 1) statusStr = "PASS";
@@ -154,7 +164,8 @@ Item {
         // =====================================================================
         // 🌟 核心升级：智能分流！C++传 categoryIndex=0 归入有功，传 1 归入无功！
         // =====================================================================
-        function onAppendErrorRow(meterIndex, categoryIndex, rowName, rowCells) {
+        function onAppendErrorRow(page,meterIndex, categoryIndex, rowName, rowCells) {
+            if(page !== mode_EnergyCalc) return;
             let data = meterDataStore;
 
             // 确保安全越界保护：如果后台乱传分类号，默认塞到第0类(有功)里
@@ -176,19 +187,43 @@ Item {
             }
 
             meterDataStore = data;
+            failTrigger++;
 
-            // 如果当前在看的正是这台仪表，智能切换并定位
+            // 1. 判断操作员现在是否正停留在表格“最底部” (留出 10 像素的容差)
+            let isAtBottom = (resultListView.contentY + resultListView.height >= resultListView.contentHeight - 10);
+
+            // 2. 记住当前位置
+            let savedContentY = resultListView.contentY;
+
             if (meterIndex === selectedMeterIndex) {
-                if (selectedCategory !== targetCat) {
-                    selectedCategory = targetCat; // 这一步会自动触发 QML 视图重绘为对应的有功/无功表
+                // 1. 智能对偶归并：防止成对数据导致标签前后疯狂闪跳
+                let targetCategory = categoryIndex;
+
+                // 2. 如果正在测试的分类和当前看的不一样，自动把标签切过去！
+                if (selectedCategory !== targetCategory) {
+                    //selectedCategory = targetCategory; // 这一步会自动触发 QML 视图重绘
                 } else {
-                    updateView();
+                    updateView(); // 标签没变，正常手动刷新当前表格的值
                 }
 
-                Qt.callLater(function() {
-                    resultListView.positionViewAtIndex(foundIndex, ListView.Center);
-                });
+                // // 3. 延迟一帧让视图将新选中的标签表格渲染完毕，再精准对准到中间！
+                // Qt.callLater(function() {
+                //     resultListView.positionViewAtIndex(foundIndex, ListView.Center);
+                // });
             }
+            // 4. 智能分支判断
+            Qt.callLater(function() {
+                if (!isAtBottom) {
+                    // 🛡️【历史查阅模式】：如果用户刚才在翻看顶部或中间的旧数据，
+                    // 强行锁死视窗，死记当前位置，绝对不跳动！
+                    resultListView.contentY = savedContentY;
+                } else {
+                    // 🚀【实时监控模式】：如果用户刚才本来就在盯着最底部，
+                    // 那新出一条数据，就顺滑地自动帮他滚到最后一行！
+                    resultListView.positionViewAtEnd();
+                    // 如果是 TableView，可以用：
+                }
+            });
         }
     }
 
@@ -397,22 +432,52 @@ Item {
             Repeater {
                 model: categories
                 delegate: Button {
+                    property bool isCatFail: hasCategoryFail(index)
+
                     text: modelData
-                    font.pixelSize: 18
-                    font.bold: selectedCategory === index
-                    Layout.preferredHeight: 50
-                    Layout.preferredWidth: implicitWidth + 30
+                    // 🌟 1. 字体加大！选中时 20px 粗体，未选中 18px 粗体，绝对清晰大方！
+                    font.pixelSize: selectedCategory === index ? 20 : 18
+                    font.bold: true
+
+                    // 🌟 2. 按钮稍微加高一点到 54px，跟大的字号更搭
+                    Layout.preferredHeight: 54
+                    Layout.preferredWidth: implicitWidth + 40 // 左右多留点空白，更大气
+
                     background: Rectangle {
-                        color: selectedCategory === index ? themeColor : "#F0F2F5"
                         radius: 6
+
+                        // 🌟 3. 核心修复：未选中时改用“纯白 #FFFFFF”！
+                        // 这样在灰色的应用底色下，每一个未选中的按钮都是一个立体的白色方块！
+                        color: {
+                            if (selectedCategory === index) return isCatFail ? "#D32F2F" : themeColor;
+                            return isCatFail ? "#FFEBEE" : "#FFFFFF"; // <--- 看这里，从 #F0F2F5 改成了 #FFFFFF
+                        }
+
+                        // 🌟 4. 加上精致边框：选中时无边框；没选中时用 #DCDFE6 勾边
+                        border.color: {
+                            if (selectedCategory === index) return "transparent";
+                            return isCatFail ? "#F44336" : "#DCDFE6";
+                        }
+                        border.width: selectedCategory === index ? 0 : 1
+
+                        // 鼠标悬浮时的反馈动画
+                        Behavior on color { ColorAnimation { duration: 150 } }
                     }
+
                     contentItem: Text {
                         text: parent.text
                         font: parent.font
-                        color: selectedCategory === index ? "#FFFFFF" : textMain
+                        // 选中时白字；没选中且报错是红字；没选中正常是深黑字 (#303133)
+                        color: {
+                            if (selectedCategory === index) return "#FFFFFF";
+                            return isCatFail ? "#D32F2F" : "#303133";
+                        }
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
+
+                        Behavior on color { ColorAnimation { duration: 150 } }
                     }
+
                     onClicked: selectedCategory = index
                 }
             }
@@ -423,7 +488,7 @@ Item {
                 id: energyTestBtn
                 Layout.preferredHeight: 50
                 Layout.preferredWidth: 160
-                property bool isRunning: typeof ins !== "undefined" ? ins.isCalibrating : false
+                property bool isRunning: ins ? ins.isCalibrating : false
 
                 background: Rectangle {
                     color: parent.pressed ? Qt.darker((energyTestBtn.isRunning ? "#F44336" : themeColor), 1.1) : (energyTestBtn.isRunning ? "#F44336" : themeColor)
@@ -440,6 +505,7 @@ Item {
                 onClicked: {
                     if (isRunning) {
                         if (typeof ins !== "undefined") {
+                            loadingPopup.show("正在停止...");
                             ins.stopCalibration();
                         }
                     } else {

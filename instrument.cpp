@@ -57,3 +57,8 @@ void Instrument::stopCalibration()
 void Instrument::triggerCpuCrash() {
     int* p = nullptr; *p = 12345;
 }
+
+void Instrument::setSourceErrorOffset(float val)
+{
+    m_calibThread->setSourceErrorOffset(val);
+}

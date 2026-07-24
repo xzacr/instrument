@@ -7,7 +7,7 @@ import QtCore // 🌟 Qt 6 官方标准导入
 Item {
     id: calibrationPage
 
-    readonly property color pageBg: "#FFFBFE"     // 页面底色 (高级浅灰)
+    //readonly property color pageBg: "transparent"     // 页面底色 (高级浅灰)
     readonly property color cardBg: "#FFFFFF"     // 卡片底色 (纯白)
     readonly property color borderColor: "#E4E7ED"// 极简边框色
     readonly property color themeColor: "#1976D2" // 主题蓝
@@ -86,11 +86,11 @@ Item {
     }
 
     // 绘制全局高级灰底色
-    Rectangle {
-        anchors.fill: parent
-        color: pageBg
-        z: -1
-    }
+    // Rectangle {
+    //     anchors.fill: parent
+    //     color: pageBg
+    //     z: -1
+    // }
 
     // =========================================================================
     // 🌟 官方推荐的标准解耦方案：两个 Settings 指向同一 INI 文件，分组管理！
@@ -413,6 +413,7 @@ Item {
                     }
 
                     onClicked: {
+                        loadingPopup.show("正在停止...");
                         ins.stopCalibration()
                         bottomStatusPanel.setStatus("操作员强行中止了校准序列！", "error")
                     }
@@ -547,6 +548,7 @@ Item {
 
                             model: ListModel {
                                 id: stepModel
+                                ListElement { stepName: "等待复位"; status: 0 }
                                 ListElement { stepName: "解除芯片保护"; status: 0 }
                                 ListElement { stepName: "系统校准握手"; status: 0 }
                                 ListElement { stepName: "电压电流校准 (PF=1.0)"; status: 0 }

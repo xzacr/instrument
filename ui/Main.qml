@@ -16,6 +16,7 @@ ApplicationWindow {
     visible: true
     title: "多功能仪表自动校准系统"
 
+    color: "#F0F2F5"
     header: Header{
         id: tabBar
     }
@@ -44,6 +45,9 @@ ApplicationWindow {
         // }
         EnergyCalc{
             id: energyPage
+        }
+        SystemSettings{
+            id: syssettings
         }
     }
 
@@ -86,10 +90,14 @@ ApplicationWindow {
     ResultPopup {
         id: resultPopup
     }
+    LoadingPopup {
+        id: loadingPopup
+    }
     Connections {
         target: ins // 替换为您 C++ 后台线程在 QML 中的实例化上下文名称
 
         function onShowResultPopup(title, msg, type) {
+            loadingPopup.hide();
             resultPopup.show(title, msg, type)
         }
     }

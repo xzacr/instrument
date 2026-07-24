@@ -24,6 +24,7 @@ public:
 
     Q_INVOKABLE void stopCalibration();
     Q_INVOKABLE void triggerCpuCrash();
+    Q_INVOKABLE void setSourceErrorOffset(float val);
 
 signals:
     void availablePortsChanged();
@@ -31,8 +32,8 @@ signals:
     void showTopMsg(const QString &msg, const QString &type);
     void meterStepStatusChanged(int meterIndex, int step, int status);
     void srcMessage(const QString &msg, const QString &type);
-    void updateErrorMeterStatus(int meterIndex, int statusEnum, const QString &desc);
-    void appendErrorRow(int meterIndex, int categoryIndex, const QString &rowName, const QVariantList &rowCells);
+    void updateErrorMeterStatus(int page,int meterIndex, int statusEnum, const QString &desc);
+    void appendErrorRow(int page, int meterIndex, int categoryIndex, const QString &rowName, const QVariantList &rowCells);
     void showResultPopup(QString title, QString msg, QString type);
 
 private:
